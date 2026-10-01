@@ -80,12 +80,14 @@ th{background:#f0f0f0}
 </div>
 
 <div class="container">
-  <div class="section-title" style="margin-top:0">🗂️ Banco de Dados (Google Planilhas)</div>
+  <div class="section-title" style="margin-top:0">🗂️ Banco de Dados (Excel)</div>
   <input id="busca" placeholder="🔎 Buscar por cliente, NF, carreto..." oninput="renderTabela()" style="margin-bottom:10px">
+  <small id="xlsStatus" style="display:block;margin-bottom:8px;color:#555"></small>
   <div class="tw"><table><thead><tr><th>Data</th><th>NF</th><th>Cliente</th><th>Carreto</th><th></th></tr></thead><tbody id="tbody"></tbody></table></div>
   <small id="contagem" style="color:#666"></small>
   <div class="btn-group">
-    <button class="btn b-sem" onclick="sincronizar()">🔄 Sincronizar</button>
+    <button class="btn b-sem" onclick="criarExcel()">🆕 Criar arquivo Excel</button>
+    <button class="btn b-sem" onclick="abrirExcel()">📂 Abrir arquivo Excel</button>
     <button class="btn b-xls" onclick="exportarExcel()">📥 Exportar Excel (.xlsx)</button>
     <button class="btn b-gray" onclick="document.getElementById('xlsIn').click()">📤 Importar Excel</button>
     <input type="file" id="xlsIn" accept=".xlsx,.xls,.csv" style="display:none" onchange="importarExcel(this)">
@@ -96,9 +98,6 @@ th{background:#f0f0f0}
 <div id="toast"></div>
 
 <script>
-// Cole aqui a URL do seu Apps Script (implantação como app da Web). Veja o passo a passo.
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwBDXgO-ZVdfARDauGvz91IwpWCCxI6nYxQgrX4Fki3wl0nXLwFYdaX3cEoi1b0KLhf/exec";
-
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
 
 const COLS = ['data','nf','cliente','telefone','endereco','bairro','cep','carreto','pagamento','obs'];
@@ -112,25 +111,10 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt
 function toast(m){ const t=$('toast'); t.textContent=m; t.classList.add('on'); setTimeout(()=>t.classList.remove('on'),2200); }
 
 /* ---------- Banco local ---------- */
-let DB = [];
+let DB = [], fileHandle = null;
 function carregarBD(){ return DB; }
-function gravarBD(l){ DB = l; try{ localStorage.setItem(KEY, JSON.stringify(l)); }catch(e){} }
-async function api(body){
-  const r = await fetch(SCRIPT_URL, {method:'POST', body:JSON.stringify(body)}); // text/plain: evita preflight do CORS
-  const j = await r.json(); if(!j.ok) throw new Error(j.error||'erro'); return j;
-}
-async function sincronizar(){
-  toast('Carregando do Google Planilhas...');
-  try{
-    const r = await fetch(SCRIPT_URL); const j = await r.json();
-    if(!Array.isArray(j)) throw 0;
-    gravarBD(j); toast('Sincronizado com o Google Planilhas ✔');
-  }catch(e){
-    try{ DB = JSON.parse(localStorage.getItem(KEY)||'[]'); }catch(_){ DB = []; }
-    toast('Sem conexão com a planilha: mostrando cópia local.');
-  }
-  renderTabela();
-}
+function lerLocal(){ try{ DB = JSON.parse(localStorage.getItem(KEY)||'[]'); }catch(e){ DB = []; } }
+function gravarBD(l){ DB = l; try{ localStorage.setItem(KEY, JSON.stringify(l)); }catch(e){} salvarArquivo(); }
 
 function obterDados(){ const d={}; COLS.forEach(c=>d[c]=$(c).value.trim()); return d; }
 function preencher(d){ COLS.forEach(c=>$(c).value=d[c]||''); gerarMensagens(); }
@@ -143,8 +127,7 @@ async function salvar(){
   const i = lista.findIndex(r=>r.id===reg.id);
   if(i>=0) lista[i]=reg; else lista.push(reg);
   gravarBD(lista);
-  try{ await api({action:'save', row:reg}); toast('Salvo no Google Planilhas ✔'); }
-  catch(e){ toast('Salvo só neste aparelho: falhou o envio ao Google.'); }
+  toast(editId ? 'Registro atualizado!' : 'Registro salvo!');
   limpar(); renderTabela();
 }
 
@@ -155,10 +138,9 @@ function editar(id){
   window.scrollTo({top:0,behavior:'smooth'});
 }
 async function excluir(id){
-  if(!confirm('Excluir este registro (também da planilha)?')) return;
+  if(!confirm('Excluir este registro ?')) return;
   gravarBD(carregarBD().filter(r=>r.id!==id)); renderTabela();
-  try{ await api({action:'delete', id}); toast('Registro excluído.'); }
-  catch(e){ toast('Excluído local, mas falhou na planilha.'); }
+  toast('Registro excluído.');
 }
 
 function renderTabela(){
@@ -173,40 +155,77 @@ function renderTabela(){
 }
 
 /* ---------- Excel ---------- */
-function exportarExcel(){
-  const lista = carregarBD();
-  if(!lista.length){ toast('Nada para exportar.'); return; }
-  const aoa = [HEAD, ...lista.map(r=>COLS.map(c=>r[c]||''))];
+function montarWB(){
+  const aoa = [HEAD, ...carregarBD().map(r=>COLS.map(c=>r[c]||''))];
   const ws = XLSX.utils.aoa_to_sheet(aoa);
   ws['!cols'] = [12,10,28,16,34,28,11,18,28,34].map(w=>({wch:w}));
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Coletas');
-  XLSX.writeFile(wb, 'Coletas_' + new Date().toISOString().slice(0,10) + '.xlsx');
-  toast('Excel gerado!');
+  return wb;
+}
+function bytesXLSX(){ return XLSX.write(montarWB(), {type:'array', bookType:'xlsx'}); }
+
+function exportarExcel(){
+  if(!carregarBD().length){ toast('Nada para exportar.'); return; }
+  XLSX.writeFile(montarWB(), 'Coletas_' + new Date().toISOString().slice(0,10) + '.xlsx');
+  toast('Excel baixado!');
 }
 
+function statusExcel(){
+  $('xlsStatus').textContent = fileHandle
+    ? '✅ Conectado a: ' + fileHandle.name + ' (cada alteração é gravada no arquivo)'
+    : '⚠️ Nenhum arquivo Excel conectado: os dados ficam só neste navegador.';
+}
+async function salvarArquivo(){
+  if(!fileHandle) return;
+  try{
+    const w = await fileHandle.createWritable();
+    await w.write(bytesXLSX()); await w.close();
+  }catch(e){ fileHandle = null; statusExcel(); toast('Não consegui gravar no Excel (arquivo aberto em outro programa?). Reconecte.'); }
+}
+const TIPOS = [{description:'Planilha Excel', accept:{'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx']}}];
+
+async function criarExcel(){
+  if(!window.showSaveFilePicker){ toast('Use Chrome ou Edge no computador. Aqui use Exportar/Importar.'); return; }
+  try{
+    fileHandle = await showSaveFilePicker({suggestedName:'Coletas.xlsx', types:TIPOS});
+    await salvarArquivo(); statusExcel(); toast('Arquivo Excel criado e conectado!');
+  }catch(e){ /* cancelado */ }
+}
+async function abrirExcel(){
+  if(!window.showOpenFilePicker){ toast('Use Chrome ou Edge no computador. Aqui use Exportar/Importar.'); return; }
+  try{
+    const [h] = await showOpenFilePicker({types:TIPOS});
+    if(await h.requestPermission({mode:'readwrite'}) !== 'granted') return;
+    const n = mesclar(await (await h.getFile()).arrayBuffer());
+    fileHandle = h; await salvarArquivo(); statusExcel(); renderTabela();
+    toast('Conectado! ' + n + ' registro(s) carregado(s).');
+  }catch(e){ if(e.name!=='AbortError') toast('Erro ao abrir o arquivo.'); }
+}
+
+function mesclar(buf){
+  const wb = XLSX.read(buf, {type:'array'});
+  const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header:1, defval:''});
+  const lista = carregarBD().slice();
+  const chave = r => [r.data,r.nf,r.cliente].join('|');
+  const existentes = new Set(lista.map(chave));
+  let novos = 0;
+  rows.slice(1).forEach(row=>{
+    const r = {}; COLS.forEach((c,i)=>r[c]=String(row[i]??'').trim());
+    if(!r.nf && !r.cliente) return;
+    if(existentes.has(chave(r))) return;
+    r.id = Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+    lista.push(r); existentes.add(chave(r)); novos++;
+  });
+  gravarBD(lista);
+  return novos;
+}
 function importarExcel(input){
   const f = input.files[0]; if(!f) return;
   const rd = new FileReader();
   rd.onload = e => {
-    try{
-      const wb = XLSX.read(e.target.result, {type:'array'});
-      const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header:1, defval:''});
-      const lista = carregarBD();
-      const chave = r => [r.data,r.nf,r.cliente].join('|');
-      const existentes = new Set(lista.map(chave));
-      let novos = 0; const add = [];
-      rows.slice(1).forEach(row=>{
-        const r = {}; COLS.forEach((c,i)=>r[c]=String(row[i]??'').trim());
-        if(!r.nf && !r.cliente) return;
-        if(existentes.has(chave(r))) return;
-        r.id = Date.now().toString(36)+Math.random().toString(36).slice(2,6);
-        lista.push(r); add.push(r); existentes.add(chave(r)); novos++;
-      });
-      gravarBD(lista); renderTabela();
-      if(add.length) api({action:'bulk', rows:add}).then(()=>toast(novos+' importado(s) e enviados ao Google.')).catch(()=>toast('Importado local; falhou envio ao Google.'));
-      else toast('Nenhum registro novo.');
-    }catch(err){ toast('Erro ao ler o arquivo.'); }
+    try{ const n = mesclar(e.target.result); renderTabela(); toast(n + ' registro(s) importado(s).'); }
+    catch(err){ toast('Erro ao ler o arquivo.'); }
     input.value = '';
   };
   rd.readAsArrayBuffer(f);
@@ -364,7 +383,7 @@ COLS.forEach(c=>$(c).addEventListener('input',()=>{
   gerarMensagens();
 }));
 
-gerarMensagens(); sincronizar();
+lerLocal(); gerarMensagens(); renderTabela(); statusExcel();
 </script>
 </body>
 </html>
