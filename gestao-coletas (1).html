@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gestão de Coletas e Carretos</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+body{font-family:Arial,sans-serif;background:#f4f4f9;margin:16px;color:#333}
+.container{max-width:760px;background:#fff;padding:22px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.1);margin:0 auto 16px}
+h2{margin-top:0;color:#075e54}
+.upload-box{border:2px dashed #075e54;background:#e8f5e9;padding:14px;text-align:center;border-radius:6px;margin-bottom:18px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
+.full{grid-column:1/-1}
+.form-group{margin-bottom:11px}
+label{display:block;font-weight:bold;margin-bottom:4px;font-size:13px}
+input,textarea{width:100%;padding:8px 10px;border:1px solid #ccc;border-radius:4px;box-sizing:border-box;font-size:14px}
+textarea{resize:vertical;height:60px}
+.section-title{margin:22px 0 8px;color:#075e54;font-size:16px;border-bottom:1px solid #ddd;padding-bottom:4px}
+.preview-box{background:#e5ddd5;padding:14px;border-radius:6px;white-space:pre-wrap;font-family:monospace;font-size:13px;border:1px solid #d1c7bd}
+.btn-group{display:flex;gap:8px;margin:10px 0;flex-wrap:wrap}
+.btn{border:none;padding:10px 14px;font-size:14px;font-weight:bold;border-radius:4px;cursor:pointer;flex:1;color:#fff;text-align:center;min-width:130px}
+.btn:hover{opacity:.9}
+.b-cli{background:#128c7e}.b-car{background:#25d366}.b-save{background:#f0ad4e}.b-clear{background:#d9534f}
+.b-pdf{background:#0275d8}.b-sem{background:#6f42c1}.b-xls{background:#1d6f42}.b-gray{background:#6c757d}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{border-bottom:1px solid #eee;padding:6px;text-align:left}
+th{background:#f0f0f0}
+.tw{overflow-x:auto;max-height:320px;overflow-y:auto}
+.mini{padding:3px 8px;border:none;border-radius:3px;color:#fff;cursor:pointer;font-size:12px}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#222;color:#fff;padding:10px 18px;border-radius:6px;opacity:0;transition:.3s;pointer-events:none;z-index:99}
+#toast.on{opacity:1}
+@media(max-width:600px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<div class="container">
+  <h2>🚚 Gestão de Coletas e Carretos</h2>
+
+  <div class="upload-box">
+    <label for="pdfFile" style="cursor:pointer;color:#075e54">📄 Subir PDF da Nota Fiscal (DANFE)</label>
+    <input type="file" id="pdfFile" accept="application/pdf" onchange="lerPDF(this)">
+    <small id="uploadStatus" style="display:block;margin-top:5px;color:#666">Selecione o PDF para preenchimento automático.</small>
+  </div>
+
+  <div class="grid">
+    <div class="form-group"><label>Carreto / Motorista</label><input id="carreto" placeholder="Ex: Edmar Transportes"></div>
+    <div class="form-group"><label>Nota Fiscal</label><input id="nf" placeholder="Ex: 043276"></div>
+    <div class="form-group"><label>Cliente</label><input id="cliente" placeholder="Ex: Maria José de Sousa Silva"></div>
+    <div class="form-group"><label>Telefone</label><input id="telefone" placeholder="(11) 95959-0039" inputmode="tel"></div>
+    <div class="form-group full"><label>Endereço de Entrega</label><input id="endereco" placeholder="Ex: Avenida Paraguaçu Paulista, 705"></div>
+    <div class="form-group"><label>Bairro / Cidade / UF</label><input id="bairro" placeholder="Ex: Jardim Ana Estela - Carapicuíba/SP"></div>
+    <div class="form-group"><label>CEP</label><input id="cep" placeholder="06364-550" inputmode="numeric"></div>
+    <div class="form-group"><label>Data de Retirada / Entrega</label><input id="data" placeholder="dd/mm/aaaa"></div>
+    <div class="form-group"><label>Pagamento do Frete</label><input id="pagamento" placeholder="Ex: Cliente paga no local R$ 700,00"></div>
+    <div class="form-group full"><label>Observações</label><textarea id="obs" placeholder="Ex: Retirada Edmar 152 presilhas internas"></textarea></div>
+  </div>
+
+  <div class="btn-group">
+    <button class="btn b-save" id="btnSalvar" onclick="salvar()">💾 Salvar Registro</button>
+    <button class="btn b-clear" onclick="limpar()">🗑️ Novo / Limpar</button>
+  </div>
+
+  <div class="section-title">📱 Mensagem 1: Para o Cliente</div>
+  <div class="preview-box" id="previewCliente"></div>
+  <div class="btn-group">
+    <button class="btn b-cli" onclick="copiar('cliente')">Copiar p/ Cliente</button>
+    <button class="btn b-car" onclick="abrirWhats()">Abrir no WhatsApp</button>
+  </div>
+
+  <div class="section-title">🚛 Mensagem 2: Para o Carreto</div>
+  <div class="preview-box" id="previewCarreto"></div>
+  <div class="btn-group">
+    <button class="btn b-car" onclick="copiar('carreto')">Copiar p/ Carreto</button>
+    <button class="btn b-pdf" onclick="gerarPDF()">Baixar PDF</button>
+  </div>
+</div>
+
+<div class="container">
+  <div class="section-title" style="margin-top:0">🗂️ Banco de Dados (Google Planilhas)</div>
+  <input id="busca" placeholder="🔎 Buscar por cliente, NF, carreto..." oninput="renderTabela()" style="margin-bottom:10px">
+  <div class="tw"><table><thead><tr><th>Data</th><th>NF</th><th>Cliente</th><th>Carreto</th><th></th></tr></thead><tbody id="tbody"></tbody></table></div>
+  <small id="contagem" style="color:#666"></small>
+  <div class="btn-group">
+    <button class="btn b-sem" onclick="sincronizar()">🔄 Sincronizar</button>
+    <button class="btn b-xls" onclick="exportarExcel()">📥 Exportar Excel (.xlsx)</button>
+    <button class="btn b-gray" onclick="document.getElementById('xlsIn').click()">📤 Importar Excel</button>
+    <input type="file" id="xlsIn" accept=".xlsx,.xls,.csv" style="display:none" onchange="importarExcel(this)">
+  </div>
+  <button class="btn b-sem" style="width:100%" onclick="copiarSemana()">📋 Copiar Entregas da Semana</button>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// Cole aqui a URL do seu Apps Script (implantação como app da Web). Veja o passo a passo.
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyiB2HGjI99va6sajy7MBYiRzLyuV7eFUfiFRNyr5_P1bSwesgv3m_WfFNvPLz5qRV8/exec";
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+
+const COLS = ['data','nf','cliente','telefone','endereco','bairro','cep','carreto','pagamento','obs'];
+const HEAD = ['Data','NF','Cliente','Telefone','Endereço','Bairro/Cidade/UF','CEP','Carreto','Pagamento Frete','Observações'];
+const KEY = 'coletas_db_v1';
+let editId = null;
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function toast(m){ const t=$('toast'); t.textContent=m; t.classList.add('on'); setTimeout(()=>t.classList.remove('on'),2200); }
+
+/* ---------- Banco local ---------- */
+let DB = [];
+function carregarBD(){ return DB; }
+function gravarBD(l){ DB = l; try{ localStorage.setItem(KEY, JSON.stringify(l)); }catch(e){} }
+async function api(body){
+  const r = await fetch(SCRIPT_URL, {method:'POST', body:JSON.stringify(body)}); // text/plain: evita preflight do CORS
+  const j = await r.json(); if(!j.ok) throw new Error(j.error||'erro'); return j;
+}
+async function sincronizar(){
+  toast('Carregando do Google Planilhas...');
+  try{
+    const r = await fetch(SCRIPT_URL); const j = await r.json();
+    if(!Array.isArray(j)) throw 0;
+    gravarBD(j); toast('Sincronizado com o Google Planilhas ✔');
+  }catch(e){
+    try{ DB = JSON.parse(localStorage.getItem(KEY)||'[]'); }catch(_){ DB = []; }
+    toast('Sem conexão com a planilha: mostrando cópia local.');
+  }
+  renderTabela();
+}
+
+function obterDados(){ const d={}; COLS.forEach(c=>d[c]=$(c).value.trim()); return d; }
+function preencher(d){ COLS.forEach(c=>$(c).value=d[c]||''); gerarMensagens(); }
+
+async function salvar(){
+  const d = obterDados();
+  if(!d.nf && !d.cliente){ toast('Preencha ao menos o cliente ou a NF.'); return; }
+  const reg = {...d, id: editId || (Date.now().toString(36)+Math.random().toString(36).slice(2,5))};
+  const lista = carregarBD().slice();
+  const i = lista.findIndex(r=>r.id===reg.id);
+  if(i>=0) lista[i]=reg; else lista.push(reg);
+  gravarBD(lista);
+  try{ await api({action:'save', row:reg}); toast('Salvo no Google Planilhas ✔'); }
+  catch(e){ toast('Salvo só neste aparelho: falhou o envio ao Google.'); }
+  limpar(); renderTabela();
+}
+
+function editar(id){
+  const r = carregarBD().find(x=>x.id===id); if(!r) return;
+  editId = id; preencher(r);
+  $('btnSalvar').textContent = '💾 Atualizar Registro';
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+async function excluir(id){
+  if(!confirm('Excluir este registro (também da planilha)?')) return;
+  gravarBD(carregarBD().filter(r=>r.id!==id)); renderTabela();
+  try{ await api({action:'delete', id}); toast('Registro excluído.'); }
+  catch(e){ toast('Excluído local, mas falhou na planilha.'); }
+}
+
+function renderTabela(){
+  const q = $('busca').value.toLowerCase();
+  const lista = carregarBD().filter(r=>!q || COLS.some(c=>String(r[c]||'').toLowerCase().includes(q)));
+  $('tbody').innerHTML = lista.slice().reverse().map(r=>
+    `<tr><td>${esc(r.data)}</td><td>${esc(r.nf)}</td><td>${esc(r.cliente)}</td><td>${esc(r.carreto)}</td>
+     <td style="white-space:nowrap"><button class="mini b-pdf" onclick="editar('${r.id}')">Editar</button>
+     <button class="mini b-clear" onclick="excluir('${r.id}')">Excluir</button></td></tr>`).join('')
+     || '<tr><td colspan="5" style="color:#999">Nenhum registro.</td></tr>';
+  $('contagem').textContent = lista.length + ' registro(s)';
+}
+
+/* ---------- Excel ---------- */
+function exportarExcel(){
+  const lista = carregarBD();
+  if(!lista.length){ toast('Nada para exportar.'); return; }
+  const aoa = [HEAD, ...lista.map(r=>COLS.map(c=>r[c]||''))];
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols'] = [12,10,28,16,34,28,11,18,28,34].map(w=>({wch:w}));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Coletas');
+  XLSX.writeFile(wb, 'Coletas_' + new Date().toISOString().slice(0,10) + '.xlsx');
+  toast('Excel gerado!');
+}
+
+function importarExcel(input){
+  const f = input.files[0]; if(!f) return;
+  const rd = new FileReader();
+  rd.onload = e => {
+    try{
+      const wb = XLSX.read(e.target.result, {type:'array'});
+      const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header:1, defval:''});
+      const lista = carregarBD();
+      const chave = r => [r.data,r.nf,r.cliente].join('|');
+      const existentes = new Set(lista.map(chave));
+      let novos = 0; const add = [];
+      rows.slice(1).forEach(row=>{
+        const r = {}; COLS.forEach((c,i)=>r[c]=String(row[i]??'').trim());
+        if(!r.nf && !r.cliente) return;
+        if(existentes.has(chave(r))) return;
+        r.id = Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+        lista.push(r); add.push(r); existentes.add(chave(r)); novos++;
+      });
+      gravarBD(lista); renderTabela();
+      if(add.length) api({action:'bulk', rows:add}).then(()=>toast(novos+' importado(s) e enviados ao Google.')).catch(()=>toast('Importado local; falhou envio ao Google.'));
+      else toast('Nenhum registro novo.');
+    }catch(err){ toast('Erro ao ler o arquivo.'); }
+    input.value = '';
+  };
+  rd.readAsArrayBuffer(f);
+}
+
+/* ---------- Relatório semanal ---------- */
+function parseData(s){ const m = /(\d{2})\/(\d{2})\/(\d{4})/.exec(s||''); return m ? new Date(+m[3], +m[2]-1, +m[1]) : null; }
+function copiarSemana(){
+  const hoje = new Date(); hoje.setHours(0,0,0,0);
+  const seg = new Date(hoje); seg.setDate(hoje.getDate() - ((hoje.getDay()+6)%7));
+  const dom = new Date(seg); dom.setDate(seg.getDate()+6);
+  const lista = carregarBD().filter(r=>{ const d=parseData(r.data); return d && d>=seg && d<=dom; })
+                            .sort((a,b)=>parseData(a.data)-parseData(b.data));
+  if(!lista.length){ toast('Nenhuma entrega nesta semana.'); return; }
+  let t = `📋 *ENTREGAS DA SEMANA* (${seg.toLocaleDateString('pt-BR')} a ${dom.toLocaleDateString('pt-BR')})\n\n`;
+  lista.forEach((r,i)=>{
+    t += `*#${i+1} - NF: ${r.nf||'S/N'}*\n`;
+    if(r.data) t += `📅 ${r.data}\n`;
+    if(r.cliente) t += `👤 ${r.cliente}\n`;
+    if(r.endereco) t += `📍 ${r.endereco}${r.bairro?', '+r.bairro:''}\n`;
+    if(r.carreto) t += `🚚 ${r.carreto}\n`;
+    if(r.pagamento) t += `💰 ${r.pagamento}\n`;
+    t += `-----------------------------\n`;
+  });
+  navigator.clipboard.writeText(t.trim()).then(()=>toast('Resumo da semana copiado!'));
+}
+
+/* ---------- Mensagens ---------- */
+function gerarTextoCliente(){
+  const d = obterDados();
+  let m = `Olá${d.cliente?' *'+d.cliente+'*':''}! 👋\nSua entrega foi agendada com sucesso. Confira os dados:\n\n📦 *STATUS: COLETA AGENDADA*\n\n`;
+  if(d.data) m += `📅 *Data Agendada:* ${d.data}\n`;
+  if(d.nf) m += `📄 *Nota Fiscal:* ${d.nf}\n`;
+  if(d.carreto) m += `🚚 *Carreto:* ${d.carreto}\n`;
+  if(d.endereco||d.bairro||d.cep){
+    m += `\n📍 *Endereço de Entrega:*\n`;
+    if(d.endereco) m += d.endereco+'\n';
+    if(d.bairro) m += d.bairro+'\n';
+    if(d.cep) m += 'CEP: '+d.cep+'\n';
+  }
+  return (m + `\nQualquer dúvida, estamos à disposição! 😊`).trim();
+}
+function gerarTextoCarreto(){
+  const d = obterDados();
+  let m = `🚚 *SOLICITAÇÃO DE COLETA / CARRETO*\n\n`;
+  if(d.carreto) m += `🚛 *Carreto:* ${d.carreto}\n`;
+  if(d.nf) m += `📄 *Nota Fiscal:* ${d.nf}\n`;
+  if(d.cliente) m += `👤 *Cliente:* ${d.cliente}\n`;
+  if(d.telefone) m += `📞 *Telefone:* ${d.telefone}\n`;
+  if(d.endereco||d.bairro||d.cep){
+    m += `\n📍 *Endereço de Entrega:*\n`;
+    if(d.endereco) m += d.endereco+'\n';
+    if(d.bairro) m += d.bairro+'\n';
+    if(d.cep) m += 'CEP: '+d.cep+'\n';
+  }
+  if(d.data) m += `\n📅 *Data de Retirada:* ${d.data}\n`;
+  if(d.pagamento) m += `💰 *Pagamento do Frete:* ${d.pagamento}\n`;
+  if(d.obs) m += `\n📝 *Observações:*\n${d.obs}\n`;
+  return m.trim();
+}
+function gerarMensagens(){
+  $('previewCliente').innerText = gerarTextoCliente();
+  $('previewCarreto').innerText = gerarTextoCarreto();
+}
+function copiar(tipo){
+  navigator.clipboard.writeText(tipo==='cliente'?gerarTextoCliente():gerarTextoCarreto()).then(()=>toast('Mensagem copiada!'));
+}
+function abrirWhats(){
+  let n = $('telefone').value.replace(/\D/g,'');
+  if(n.length<10){ toast('Informe um telefone válido.'); return; }
+  if(!n.startsWith('55')) n = '55'+n;
+  window.open('https://wa.me/'+n+'?text='+encodeURIComponent(gerarTextoCliente()),'_blank');
+}
+
+function limpar(){
+  editId = null;
+  $('btnSalvar').textContent = '💾 Salvar Registro';
+  document.querySelectorAll('.container input:not(#busca):not([type=file]), .container textarea').forEach(el=>el.value='');
+  $('pdfFile').value='';
+  $('uploadStatus').innerText='Selecione o PDF para preenchimento automático.';
+  $('uploadStatus').style.color='#666';
+  gerarMensagens();
+}
+
+/* ---------- PDF (corrigido: elemento visível, fundo branco, sem display:none) ---------- */
+function gerarPDF(){
+  const d = obterDados();
+  const linhas = [['Carreto',d.carreto],['Nota Fiscal',d.nf],['Cliente',d.cliente],['Telefone',d.telefone],
+    ['Endereço',d.endereco],['Bairro / Cidade / UF',d.bairro],['CEP',d.cep],['Data de Retirada',d.data],
+    ['Pagamento do Frete',d.pagamento],['Observações',d.obs]].filter(l=>l[1]);
+  if(!linhas.length){ toast('Preencha os dados antes de gerar o PDF.'); return; }
+
+  const el = document.createElement('div');
+  el.style.cssText = 'position:fixed;top:0;left:0;width:700px;background:#fff;color:#000;padding:30px;font-family:Arial,sans-serif;z-index:-1';
+  el.innerHTML = `<h2 style="text-align:center;color:#075e54;border-bottom:2px solid #075e54;padding-bottom:10px;margin:0 0 18px">Solicitação de Coleta / Carreto</h2>
+    <table style="width:100%;border-collapse:collapse;font-size:14px">${linhas.map(l=>
+      `<tr><td style="padding:8px;border-bottom:1px solid #ddd;font-weight:bold;width:34%;vertical-align:top">${esc(l[0])}</td>
+       <td style="padding:8px;border-bottom:1px solid #ddd;white-space:pre-wrap">${esc(l[1])}</td></tr>`).join('')}</table>`;
+  document.body.appendChild(el);
+  window.scrollTo(0,0);
+
+  html2pdf().set({
+    margin:10, filename:`Coleta_NF_${d.nf||'sem-numero'}.pdf`,
+    image:{type:'jpeg',quality:.98},
+    html2canvas:{scale:2,scrollX:0,scrollY:0,backgroundColor:'#ffffff',useCORS:true},
+    jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}
+  }).from(el).save().then(()=>{ el.remove(); toast('PDF gerado!'); }).catch(()=>{ el.remove(); toast('Erro ao gerar PDF.'); });
+}
+
+/* ---------- Leitura da DANFE ---------- */
+async function lerPDF(input){
+  const file = input.files[0]; if(!file) return;
+  const st = $('uploadStatus');
+  st.innerText = 'Lendo Nota Fiscal...'; st.style.color = '#0275d8';
+  try{
+    const pdf = await pdfjsLib.getDocument({data: await file.arrayBuffer()}).promise;
+    let t = '';
+    for(let i=1;i<=pdf.numPages;i++){
+      const tc = await (await pdf.getPage(i)).getTextContent();
+      t += tc.items.map(x=>x.str).join(' ') + ' ';
+    }
+    const g = (re,i=1)=>{ const m=t.match(re); return m?m[i].trim():''; };
+    const nf = g(/N[º°o.]*\s*(\d{3}\.?\d{3}|\d{6,9})/i).replace(/\./g,'');
+    const cli = g(/DESTINATÁRIO\/REMETENTE[\s\S]*?NOME\/RAZÃO SOCIAL\s*([A-Za-zÀ-ÿ\s]+?)(?=\s*CNPJ|\s*ENDEREÇO)/i);
+    const end = g(/ENDEREÇO\s*([A-Za-zÀ-ÿ0-9\s,\.-]+?)(?=\s*BAIRRO|\s*MUNICIPIO)/i);
+    const bai = g(/BAIRRO\s*([A-Za-zÀ-ÿ0-9\s]+?)(?=\s*UF|\s*CEP)/i);
+    const mun = g(/MUNICIPIO\s*([A-Za-zÀ-ÿ\s]+?)(?=\s*UF|\s*INSC)/i);
+    const uf = g(/\bUF\s*([A-Z]{2})\b/);
+    const cep = g(/\d{2}\.?\d{3}-?\d{3}/,0);
+    const fone = g(/\(\d{2}\)\s*\d{4,5}-?\d{4}/,0);
+
+    if(nf) $('nf').value = nf;
+    if(cli) $('cliente').value = cli;
+    if(end) $('endereco').value = end;
+    let b = bai; if(mun) b += (b?' - ':'')+mun; if(uf) b += '/'+uf;
+    if(b) $('bairro').value = b;
+    if(cep) $('cep').value = cep;
+    if(fone) $('telefone').value = fone;
+    // A data da DANFE é a de EMISSÃO, não a de retirada; por isso não preenche o campo "Data".
+
+    st.innerText = 'Dados extraídos! Confira antes de salvar.'; st.style.color = '#25a244';
+    gerarMensagens();
+  }catch(e){ st.innerText = 'Não foi possível ler este PDF.'; st.style.color = '#d9534f'; }
+}
+
+/* ---------- Máscaras e eventos ---------- */
+function mascTel(v){ v=v.replace(/\D/g,'').slice(0,11); return v.length>10?v.replace(/(\d{2})(\d{5})(\d{4})/,'($1) $2-$3'):v.length>6?v.replace(/(\d{2})(\d{4})(\d{0,4})/,'($1) $2-$3'):v.replace(/(\d{0,2})/,'$1'); }
+function mascCep(v){ v=v.replace(/\D/g,'').slice(0,8); return v.length>5?v.slice(0,5)+'-'+v.slice(5):v; }
+function mascData(v){ v=v.replace(/\D/g,'').slice(0,8); return v.replace(/(\d{2})(\d{0,2})(\d{0,4})/,(m,a,b,c)=>a+(b?'/'+b:'')+(c?'/'+c:'')); }
+
+COLS.forEach(c=>$(c).addEventListener('input',()=>{
+  if(c==='telefone') $(c).value = mascTel($(c).value);
+  if(c==='cep') $(c).value = mascCep($(c).value);
+  if(c==='data') $(c).value = mascData($(c).value);
+  gerarMensagens();
+}));
+
+gerarMensagens(); sincronizar();
+</script>
+</body>
+</html>
