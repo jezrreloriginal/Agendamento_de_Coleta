@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Artana Multistore · Coletas e Carretos</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{--az:#0b4fa8;--az2:#083a7d;--az3:#e8f0fb;--bg:#f2f6fc;--tx:#1b2a41;--bd:#d5deec}
+*{box-sizing:border-box}
+body{margin:0;font-family:'Segoe UI',system-ui,Arial,sans-serif;background:var(--bg);color:var(--tx)}
+header{background:linear-gradient(135deg,var(--az2),var(--az));color:#fff;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
+header h1{margin:0;font-size:19px}header small{opacity:.8;display:block;font-size:12px}
+header .hb{display:flex;gap:8px}
+header button{background:#fff;color:var(--az);border:0;border-radius:8px;padding:9px 14px;font-weight:700;cursor:pointer}
+.wrap{max-width:820px;margin:16px auto;padding:0 12px}
+.card{background:#fff;border:1px solid var(--bd);border-radius:12px;padding:18px;margin-bottom:14px;box-shadow:0 2px 8px rgba(11,79,168,.07)}
+h3{margin:0 0 12px;color:var(--az);font-size:15px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}.full{grid-column:1/-1}.g{margin-bottom:11px}
+label{display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#44566f}
+input,select,textarea{width:100%;padding:9px 10px;border:1px solid var(--bd);border-radius:8px;font:inherit;font-size:14px;background:#fff}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--az3);border-color:var(--az)}
+textarea{height:58px;resize:vertical}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+.btn{border:0;border-radius:8px;padding:10px 14px;font-weight:600;cursor:pointer;background:var(--az);color:#fff;flex:1;min-width:120px;font-size:14px}
+.btn.o{background:#fff;color:var(--az);border:1px solid var(--az)}.btn.r{background:#c0392b}.btn.v{background:#1f9d57}
+.btn:hover{filter:brightness(1.08)}
+.prev{background:var(--az3);border:1px solid var(--bd);border-radius:8px;padding:12px;white-space:pre-wrap;font:13px/1.5 Consolas,monospace}
+.up{border:2px dashed var(--az);background:var(--az3);border-radius:10px;padding:14px;text-align:center;margin-bottom:14px}
+#modal{position:fixed;inset:0;background:rgba(8,30,66,.55);display:none;align-items:flex-start;justify-content:center;overflow:auto;padding:20px 10px;z-index:50}
+#modal.on{display:flex}
+.box{background:#fff;border-radius:14px;width:100%;max-width:860px;padding:18px}
+.tabs{display:flex;gap:6px;margin-bottom:12px}
+.tab{flex:1;padding:9px;border:0;border-radius:8px;background:var(--az3);color:var(--az);font-weight:700;cursor:pointer}.tab.on{background:var(--az);color:#fff}
+.nav{display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.nav b{flex:1;text-align:center;color:var(--az)}
+.fl{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px}
+.day h4{margin:12px 0 4px;padding:6px 10px;background:var(--az);color:#fff;border-radius:8px;font-size:13px;display:flex;justify-content:space-between}
+.it{display:grid;grid-template-columns:1fr auto;gap:6px;border-bottom:1px solid var(--bd);padding:8px 4px;font-size:13px}
+.it small{color:#667}
+.mini{border:0;border-radius:6px;padding:4px 8px;cursor:pointer;background:var(--az3);color:var(--az);font-weight:700}
+.sel{width:auto!important;padding:4px!important}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#142a4d;color:#fff;padding:10px 18px;border-radius:8px;opacity:0;transition:.3s;pointer-events:none;z-index:99}
+#toast.on{opacity:1}
+@media(max-width:600px){.grid,.fl{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <div><h1>Artana Multistore</h1><small>Gestão de Coletas e Carretos</small></div>
+  <div class="hb"><button onclick="abrir('ag')">📅 Agendamentos</button><button onclick="abrir('mot')">🚛 Motoristas</button></div>
+</header>
+
+<div class="wrap">
+  <div id="aviso" style="display:none;background:#fff3cd;border:1px solid #ffe08a;color:#6b4e00;padding:10px 14px;border-radius:10px;margin-bottom:14px;font-size:13px"></div>
+  <div class="card">
+    <h3>☁️ Banco de dados (Google Planilhas)</h3>
+    <small id="xs" style="display:block;color:#556"></small>
+    <div class="grid" style="margin-top:10px">
+      <div class="g"><label>Link do Apps Script (termina em /exec)</label><input id="url" placeholder="https://script.google.com/macros/s/.../exec"></div>
+      <div class="g"><label>Senha (a mesma colocada no script)</label><input id="tk" type="password" autocomplete="off"></div>
+    </div>
+    <div class="row">
+      <button class="btn v" onclick="salvarCfg()">🔗 Conectar</button>
+      <button class="btn" onclick="sync()">🔄 Sincronizar</button>
+      <button class="btn o" onclick="baixar()">📥 Baixar cópia (Excel)</button>
+      <button class="btn o" onclick="$('imp').click()">📤 Importar Excel</button>
+      <input type="file" id="imp" accept=".xlsx,.xls" style="display:none" onchange="importar(this)">
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>📝 Novo agendamento</h3>
+    <div class="up">
+      <label for="pdfFile" style="cursor:pointer;color:var(--az)">📄 Subir PDF da Nota Fiscal (DANFE)</label>
+      <input type="file" id="pdfFile" accept="application/pdf" onchange="lerPDF(this)">
+      <small id="upS" style="color:#667">Preenchimento automático.</small>
+    </div>
+    <div class="grid">
+      <div class="g"><label>Nota Fiscal</label><input id="nf" placeholder="043276"></div>
+      <div class="g"><label>Data de retirada / entrega</label><input id="data" placeholder="dd/mm/aaaa"></div>
+      <div class="g"><label>Cliente</label><input id="cliente"></div>
+      <div class="g"><label>Telefone</label><input id="telefone" placeholder="(11) 90000-0000" inputmode="tel"></div>
+      <div class="g full"><label>Endereço de entrega</label><input id="endereco"></div>
+      <div class="g"><label>Bairro / Cidade / UF</label><input id="bairro"></div>
+      <div class="g"><label>CEP</label><input id="cep" inputmode="numeric" placeholder="00000-000"></div>
+      <div class="g"><label>Motorista</label><select id="carreto"></select></div>
+      <div class="g"><label>Status</label><select id="status"><option>Agendada</option><option>Em rota</option><option>Entregue</option><option>Cancelada</option></select></div>
+      <div class="g"><label>Valor do frete (R$)</label><input id="valor" placeholder="700,00" inputmode="decimal"></div>
+      <div class="g"><label>Quem paga o frete</label><select id="pagamento"><option value="">— selecione —</option><option>Cliente paga no local</option><option>Loja paga</option><option>Já pago</option><option>A combinar</option></select></div>
+      <div class="g full"><label>Observações</label><textarea id="obs"></textarea></div>
+    </div>
+    <div class="row">
+      <button class="btn v" id="bSalvar" onclick="salvar()">💾 Salvar agendamento</button>
+      <button class="btn r" onclick="limpar()">🗑️ Limpar</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>📱 Mensagem para o cliente</h3><div class="prev" id="pc"></div>
+    <div class="row"><button class="btn" onclick="copiar('c')">Copiar</button><button class="btn v" onclick="whats()">Abrir no WhatsApp</button></div>
+    <h3 style="margin-top:16px">🚛 Mensagem para o motorista</h3><div class="prev" id="pm"></div>
+    <div class="row"><button class="btn" onclick="copiar('m')">Copiar</button><button class="btn o" onclick="pdf()">Baixar PDF</button></div>
+  </div>
+</div>
+
+<div id="modal" onclick="if(event.target===this)fechar()">
+  <div class="box">
+    <div class="tabs"><button class="tab" id="t-ag" onclick="aba('ag')">📅 Agendamentos</button><button class="tab" id="t-mot" onclick="aba('mot')">🚛 Motoristas</button></div>
+
+    <div id="p-ag">
+      <div class="nav">
+        <button class="mini" onclick="mover(-1)">◀</button><b id="semT"></b><button class="mini" onclick="mover(1)">▶</button>
+        <button class="mini" onclick="hoje()">Esta semana</button>
+      </div>
+      <div class="fl">
+        <select id="fs" onchange="render()"><option value="">Todos os status</option><option value="p">Pendentes (Agendada + Em rota)</option><option>Agendada</option><option>Em rota</option><option>Entregue</option><option>Cancelada</option></select>
+        <select id="fm" onchange="render()"></select>
+      </div>
+      <div id="lista"></div>
+      <small id="tot" style="display:block;margin:10px 0;color:#556"></small>
+      <div class="row"><button class="btn" onclick="copiarSem()">📋 Copiar a semana</button><button class="btn" onclick="copiarTodos()">📋 Copiar TODOS</button><button class="btn o" onclick="fechar()">Fechar</button></div>
+    </div>
+
+    <div id="p-mot" style="display:none">
+      <h3>Motoristas cadastrados</h3>
+      <div id="listaM"></div>
+      <h3 style="margin-top:16px">➕ Cadastrar motorista</h3>
+      <div class="grid">
+        <div class="g"><label>Nome</label><input id="mn" placeholder="Ex: Edmar"></div>
+        <div class="g"><label>Telefone (opcional)</label><input id="mt" placeholder="(11) 90000-0000" inputmode="tel"></div>
+      </div>
+      <div class="row"><button class="btn v" onclick="cadM()">Cadastrar e atualizar Excel</button><button class="btn o" onclick="fechar()">Fechar</button></div>
+    </div>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+const AG=['data','nf','cliente','telefone','endereco','bairro','cep','carreto','pagamento','valor','status','obs'];
+const AGH=['Data','NF','Cliente','Telefone','Endereço','Bairro/Cidade/UF','CEP','Motorista','Quem paga','Valor Frete (R$)','Status','Observações','ID'];
+const ST=['Agendada','Em rota','Entregue','Cancelada'];
+const DIAS=['Segunda','Terça','Quarta','Quinta','Sexta','Sábado','Domingo'];
+const KA='ag_v2',KM='mot_v2',TIPOS=[{description:'Planilha Excel',accept:{'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx']}}];
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+let A=[],M=[],editId=null,sem=seg(new Date());
+let LS=true;try{localStorage.setItem('_t','1');localStorage.removeItem('_t');}catch(e){LS=false;}
+function aviso(){const m=LS?'':'⚠️ Esta janela bloqueia o armazenamento do navegador: abra o arquivo direto no Chrome/Edge (ou hospedado) para não perder alterações pendentes.';$('aviso').textContent=m;$('aviso').style.display=m?'':'none';}
+function toast(m){const t=$('toast');t.textContent=m;t.classList.add('on');setTimeout(()=>t.classList.remove('on'),2400);}
+function num(v){let s=String(v??'').replace(/[^\d,.-]/g,'');if(!s)return NaN;if(s.includes(','))s=s.replace(/\./g,'').replace(',','.');else if(/^\d{1,3}(\.\d{3})+$/.test(s))s=s.replace(/\./g,'');return parseFloat(s);}
+function fmt(v){const n=num(v);return isNaN(n)?'':n.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});}
+function pag(d){return [d.pagamento,fmt(d.valor)].filter(Boolean).join(' - ');}
+function seg(d){const x=new Date(d);x.setHours(0,0,0,0);x.setDate(x.getDate()-((x.getDay()+6)%7));return x;}
+function pd(s){const m=/(\d{2})\/(\d{2})\/(\d{4})/.exec(s||'');return m?new Date(+m[3],+m[2]-1,+m[1]):null;}
+function f5(d){return d.toLocaleDateString('pt-BR').slice(0,5);}
+function addD(d,n){const x=new Date(d);x.setDate(x.getDate()+n);return x;}
+
+/* ---------- Armazenamento ---------- */
+function ld(){try{A=JSON.parse(localStorage.getItem(KA)||'[]');M=JSON.parse(localStorage.getItem(KM)||'[]');}catch(e){}
+  if(!M.length)M=['Lalamove','Edmar','Noemia'].map(nome=>({nome,tel:''}));}
+function loc(){try{localStorage.setItem(KA,JSON.stringify(A));localStorage.setItem(KM,JSON.stringify(M));}catch(e){}}
+function sv(...ops){loc();Q.push(...ops);salvarQ();st();flush();}
+
+function wb(){
+  const w=XLSX.utils.book_new();
+  const a=XLSX.utils.aoa_to_sheet([AGH,...A.map(r=>[...AG.map(c=>c==='valor'?(isNaN(num(r.valor))?'':num(r.valor)):(r[c]||'')),r.id])]);
+  a['!cols']=[12,10,28,16,34,28,11,16,22,14,12,34,10].map(wch=>({wch}));
+  XLSX.utils.book_append_sheet(w,a,'Agendamentos');
+  const m=XLSX.utils.aoa_to_sheet([['Nome','Telefone'],...M.map(x=>[x.nome,x.tel||''])]);
+  m['!cols']=[{wch:26},{wch:18}];
+  XLSX.utils.book_append_sheet(w,m,'Motoristas');
+  return w;
+}
+function unir(f,l){const k=x=>[x.data,x.nf,x.cliente].join('|').toLowerCase();const ks=new Set(f.map(k));return [...f,...l.filter(x=>!ks.has(k(x)))];}
+function parse(buf){
+  const w=XLSX.read(buf,{type:'array'});
+  const rows=n=>w.Sheets[n]?XLSX.utils.sheet_to_json(w.Sheets[n],{header:1,defval:''}).slice(1):[];
+  const a=rows('Agendamentos').filter(r=>r[1]||r[2]).map(r=>{const o={};AG.forEach((c,i)=>o[c]=String(r[i]).trim());o.id=String(r[12]).trim()||uid();o.status=o.status||'Agendada';return o;});
+  const m=rows('Motoristas').filter(r=>r[0]).map(r=>({nome:String(r[0]).trim(),tel:String(r[1]).trim()}));
+  return {a,m};
+}
+function baixar(){XLSX.writeFile(wb(),'Coletas_backup_'+new Date().toISOString().slice(0,10)+'.xlsx');toast('Cópia baixada!');}
+function importar(inp){
+  const f=inp.files[0];if(!f)return;const rd=new FileReader();
+  rd.onload=e=>{try{const r=parse(e.target.result);const k=x=>[x.data,x.nf,x.cliente].join('|');const ex=new Set(A.map(k));let n=0;const nv=[];
+    r.a.forEach(x=>{if(!ex.has(k(x))){A.push(x);nv.push(x);ex.add(k(x));n++;}});
+    r.m.forEach(x=>{if(!M.some(y=>y.nome.toLowerCase()===x.nome.toLowerCase()))M.push(x);});
+    sv({a:'bulk',rows:nv},{a:'mot',list:M});ui();toast(n+' agendamento(s) importado(s).');}catch(err){toast('Erro ao ler o arquivo.');}inp.value='';};
+  rd.readAsArrayBuffer(f);
+}
+
+/* ---------- Google Planilhas (banco de dados na nuvem) ---------- */
+const URL0='',TK0='';
+const lsg=k=>{try{return localStorage.getItem(k)||'';}catch(e){return '';}};
+let URL_=lsg('sh_url')||URL0,TK=lsg('sh_tk')||TK0,Q=[],syncing=false,erro='';
+try{Q=JSON.parse(lsg('sh_q')||'[]');}catch(e){}
+function salvarQ(){try{localStorage.setItem('sh_q',JSON.stringify(Q));}catch(e){}}
+function msgErro(e){return e instanceof SyntaxError?'resposta inválida: confira se a implantação está com acesso "Qualquer pessoa" e o link termina em /exec':(e.message||'erro');}
+function st(){
+  $('url').value=URL_;$('tk').value=TK;
+  $('xs').textContent=!URL_?'⚠️ Cole o link e a senha do seu Google Apps Script abaixo e clique em Conectar.'
+    :erro?'⚠️ '+erro+(Q.length?' — '+Q.length+' alteração(ões) aguardando envio (ficam salvas aqui até conectar).':'')
+    :'✅ Conectado ao Google Planilhas'+(Q.length?' — enviando '+Q.length+' alteração(ões)...':'. Tudo sincronizado.');
+}
+async function api(body){
+  const r=await fetch(URL_,{method:'POST',body:JSON.stringify({...body,token:TK})});
+  const j=await r.json();if(!j.ok)throw new Error(j.erro||'erro');return j;
+}
+async function flush(){
+  if(!URL_||syncing)return;syncing=true;
+  try{while(Q.length){await api(Q[0]);Q.shift();salvarQ();st();}erro='';}
+  catch(e){erro='Sem conexão com a planilha ('+msgErro(e)+')';}
+  syncing=false;st();
+}
+async function puxar(){
+  if(!URL_)return;
+  await flush();if(Q.length)return;
+  try{
+    const r=await fetch(URL_+'?token='+encodeURIComponent(TK));const j=await r.json();
+    if(!j.ok)throw new Error(j.erro||'erro');
+    A=j.a.map(x=>({...x,status:x.status||'Agendada'}));
+    if(j.m.length){M=j.m;}else{Q.push({a:'mot',list:M});salvarQ();}
+    loc();erro='';ui();
+    if(Q.length)flush();
+  }catch(e){erro='Não consegui ler a planilha ('+msgErro(e)+')';}
+  st();
+}
+async function sync(){toast('Sincronizando...');await puxar();toast(erro||'Sincronizado!');}
+function salvarCfg(){
+  URL_=$('url').value.trim();TK=$('tk').value.trim();
+  try{localStorage.setItem('sh_url',URL_);localStorage.setItem('sh_tk',TK);}catch(e){}
+  erro='';puxar().then(()=>toast(erro||'Conectado ao Google Planilhas!'));
+}
+
+/* ---------- Formulário ---------- */
+function dados(){const d={};AG.forEach(c=>d[c]=$(c).value.trim());return d;}
+function preencher(d){
+  AG.forEach(c=>{const el=$(c),v=d[c]||'';if(el.tagName==='SELECT'&&v&&![...el.options].some(o=>o.value===v||o.text===v))el.add(new Option(v));el.value=v;});
+  if(!$('status').value)$('status').value='Agendada';msgs();
+}
+function salvar(){
+  const d=dados();
+  if(!d.nf&&!d.cliente){toast('Preencha ao menos o cliente ou a NF.');return;}
+  const dup=d.nf&&A.find(r=>r.nf===d.nf&&r.id!==editId);
+  if(dup&&!confirm('Já existe um registro com a NF '+d.nf+' ('+(dup.cliente||'sem cliente')+', '+(dup.data||'sem data')+').\nSalvar mesmo assim?'))return;
+  const reg={...d,id:editId||uid()},i=A.findIndex(r=>r.id===reg.id);
+  if(i>=0)A[i]=reg;else A.push(reg);
+  sv({a:'save',row:reg});toast(editId?'Agendamento atualizado!':'Agendamento salvo!');limpar();render();
+}
+function limpar(){
+  editId=null;$('bSalvar').textContent='💾 Salvar agendamento';
+  AG.forEach(c=>$(c).value='');$('status').value='Agendada';$('pdfFile').value='';$('upS').textContent='Preenchimento automático.';msgs();
+}
+function edit(id){const r=A.find(x=>x.id===id);if(!r)return;editId=id;preencher(r);$('bSalvar').textContent='💾 Atualizar agendamento';fechar();window.scrollTo({top:0,behavior:'smooth'});}
+function del(id){if(!confirm('Excluir este agendamento?'))return;A=A.filter(r=>r.id!==id);sv({a:'del',id});render();toast('Excluído.');}
+function stat(id,v){A=A.map(r=>r.id===id?{...r,status:v}:r);sv({a:'save',row:A.find(r=>r.id===id)});render();}
+
+/* ---------- Card de agendamentos (semana) ---------- */
+function abrir(t){
+  sem=seg(new Date());
+  const dts=A.map(r=>pd(r.data)).filter(Boolean);
+  if(dts.length&&!dts.some(d=>d>=sem&&d<=addD(sem,6))){
+    const h0=new Date();h0.setHours(0,0,0,0);
+    const fut=dts.filter(d=>d>=h0).sort((a,b)=>a-b)[0];
+    sem=seg(fut||dts.sort((a,b)=>b-a)[0]);toast('Nada nesta semana: mostrando a semana com agendamentos.');
+  }
+$('modal').classList.add('on');aba(t);}
+function fechar(){$('modal').classList.remove('on');}
+function aba(t){
+  ['ag','mot'].forEach(x=>{$('p-'+x).style.display=x===t?'':'none';$('t-'+x).classList.toggle('on',x===t);});
+  render();
+}
+function mover(n){sem=addD(sem,7*n);render();}
+function hoje(){sem=seg(new Date());render();}
+function itensSem(){
+  const f=$('fs').value,m=$('fm').value,fim=addD(sem,6);
+  return A.filter(r=>{const d=pd(r.data);return d&&d>=sem&&d<=fim&&(!m||r.carreto===m)&&(!f||(f==='p'?(r.status==='Agendada'||r.status==='Em rota'):r.status===f));})
+    .sort((a,b)=>pd(a.data)-pd(b.data));
+}
+function row(r){
+  return `<div class="it"><div><b>NF ${esc(r.nf)||'S/N'}</b> · ${esc(r.cliente)}<br><small>📍 ${esc([r.endereco,r.bairro].filter(Boolean).join(', '))}<br>🚚 ${esc(r.carreto)||'—'} · ${esc(pag(r))||'sem valor'}</small></div>
+  <div style="text-align:right"><select class="sel" onchange="stat('${r.id}',this.value)">${ST.map(x=>`<option${x===r.status?' selected':''}>${x}</option>`).join('')}</select><br>
+  <button class="mini" onclick="edit('${r.id}')">✎</button> <button class="mini" onclick="del('${r.id}')">✕</button></div></div>`;
+}
+function render(){
+  const fmv=$('fm').value;
+  $('fm').innerHTML='<option value="">Todos os motoristas</option>'+M.map(m=>`<option>${esc(m.nome)}</option>`).join('');
+  $('fm').value=fmv;
+  if(!$('modal').classList.contains('on'))return;
+  const its=itensSem();
+  $('semT').textContent='Semana de '+f5(sem)+' a '+f5(addD(sem,4))+' (seg–sex)';
+  let h='';
+  for(let i=0;i<7;i++){
+    const d=addD(sem,i),l=its.filter(r=>pd(r.data).getTime()===d.getTime());
+    if(i>4&&!l.length)continue;
+    h+=`<div class="day"><h4><span>${DIAS[i]} · ${f5(d)}</span><span>${l.length}</span></h4>${l.map(row).join('')||'<div class="it"><small>Sem agendamentos</small></div>'}</div>`;
+  }
+  const sd=A.filter(r=>!pd(r.data));
+  if(sd.length)h+=`<div class="day"><h4><span>⚠️ Sem data válida</span><span>${sd.length}</span></h4>${sd.map(row).join('')}</div>`;
+  $('lista').innerHTML=h;
+  const tot=its.filter(r=>r.status!=='Cancelada').reduce((a,r)=>a+(num(r.valor)||0),0);
+  $('tot').textContent=its.length+' agendamento(s) na semana (de '+A.length+' no banco) · Total de fretes: '+(fmt(tot)||'R$ 0,00');
+  $('listaM').innerHTML=M.map((m,i)=>`<div class="it"><div><b>${esc(m.nome)}</b><br><small>${esc(m.tel)||'sem telefone'}</small></div><div><button class="mini" onclick="delM(${i})">✕</button></div></div>`).join('')||'<small>Nenhum motorista.</small>';
+}
+function filtrados(){const f=$('fs').value,m=$('fm').value;return A.filter(r=>(!m||r.carreto===m)&&(!f||(f==='p'?(r.status==='Agendada'||r.status==='Em rota'):r.status===f)));}
+function lin(r){return '• NF '+(r.nf||'S/N')+' | '+(r.cliente||'-')+'\n  📍 '+([r.endereco,r.bairro].filter(Boolean).join(', ')||'-')+'\n  🚚 '+(r.carreto||'-')+(pag(r)?' | 💰 '+pag(r):'')+' | '+r.status+'\n';}
+function copiarTodos(){
+  const l=filtrados();if(!l.length){toast('Nenhum agendamento.');return;}
+  const com=l.filter(r=>pd(r.data)).sort((a,b)=>pd(a.data)-pd(b.data)),sd=l.filter(r=>!pd(r.data));
+  let t='📋 *TODOS OS AGENDAMENTOS* ('+l.length+')\n',w=null,d0=null;
+  com.forEach(r=>{const d=pd(r.data),s0=seg(d);
+    if(s0.getTime()!==w){w=s0.getTime();d0=null;t+='\n━━━ *SEMANA '+f5(s0)+' a '+f5(addD(s0,4))+'* ━━━\n';}
+    if(d.getTime()!==d0){d0=d.getTime();t+='\n*'+DIAS[(d.getDay()+6)%7].toUpperCase()+' – '+f5(d)+'*\n';}
+    t+=lin(r);});
+  if(sd.length){t+='\n*SEM DATA*\n';sd.forEach(r=>t+=lin(r));}
+  const tot=l.filter(r=>r.status!=='Cancelada').reduce((a,r)=>a+(num(r.valor)||0),0);
+  t+='\n*Total: '+l.length+' entrega(s) · '+(fmt(tot)||'R$ 0,00')+'*';
+  navigator.clipboard.writeText(t.trim()).then(()=>toast(l.length+' agendamento(s) copiado(s)!'));
+}
+function copiarSem(){
+  const its=itensSem();
+  if(!its.length){toast('Nenhum agendamento nesta semana (com os filtros atuais).');return;}
+  let t='📋 *AGENDAMENTOS DA SEMANA* ('+f5(sem)+' a '+f5(addD(sem,4))+')\n';
+  DIAS.forEach((n,i)=>{
+    const d=addD(sem,i),l=its.filter(r=>pd(r.data).getTime()===d.getTime());
+    if(!l.length)return;
+    t+='\n*'+n.toUpperCase()+' – '+f5(d)+'*\n';
+    l.forEach(r=>{t+='• NF '+(r.nf||'S/N')+' | '+(r.cliente||'-')+'\n  📍 '+([r.endereco,r.bairro].filter(Boolean).join(', ')||'-')+'\n  🚚 '+(r.carreto||'-')+(pag(r)?' | 💰 '+pag(r):'')+' | '+r.status+'\n';});
+  });
+  const tot=its.filter(r=>r.status!=='Cancelada').reduce((a,r)=>a+(num(r.valor)||0),0);
+  t+='\n*Total: '+its.length+' entrega(s) · '+(fmt(tot)||'R$ 0,00')+'*';
+  navigator.clipboard.writeText(t).then(()=>toast(its.length+' agendamento(s) copiado(s)!'));
+}
+
+/* ---------- Motoristas ---------- */
+function ui(){
+  const c=$('carreto'),v=c.value;
+  c.innerHTML='<option value="">— selecione —</option>'+M.map(m=>`<option>${esc(m.nome)}</option>`).join('');
+  if(v&&![...c.options].some(o=>o.value===v))c.add(new Option(v));
+  c.value=v;render();msgs();
+}
+function cadM(){
+  const nome=$('mn').value.trim(),tel=$('mt').value.trim();
+  if(!nome){toast('Informe o nome do motorista.');return;}
+  if(M.some(m=>m.nome.toLowerCase()===nome.toLowerCase())){toast('Esse motorista já está cadastrado.');return;}
+  M.push({nome,tel});sv({a:'mot',list:M});ui();$('mn').value='';$('mt').value='';
+  toast(URL_?'Motorista cadastrado e planilha atualizada!':'Motorista cadastrado (conecte a planilha para gravar na nuvem).');
+}
+function delM(i){if(!confirm('Remover '+M[i].nome+' da lista? (os agendamentos antigos não mudam)'))return;M.splice(i,1);sv({a:'mot',list:M});ui();}
+
+/* ---------- Mensagens ---------- */
+function txtC(){
+  const d=dados();let m='Olá'+(d.cliente?' *'+d.cliente+'*':'')+'! 👋\nSua entrega foi agendada com sucesso. Confira os dados:\n\n📦 *STATUS: COLETA AGENDADA*\n\n';
+  if(d.data)m+='📅 *Data Agendada:* '+d.data+'\n';
+  if(d.nf)m+='📄 *Nota Fiscal:* '+d.nf+'\n';
+  if(d.carreto)m+='🚚 *Motorista:* '+d.carreto+'\n';
+  if(d.endereco||d.bairro||d.cep){m+='\n📍 *Endereço de Entrega:*\n';if(d.endereco)m+=d.endereco+'\n';if(d.bairro)m+=d.bairro+'\n';if(d.cep)m+='CEP: '+d.cep+'\n';}
+  return (m+'\nQualquer dúvida, estamos à disposição! 😊').trim();
+}
+function txtM(){
+  const d=dados();let m='🚚 *SOLICITAÇÃO DE COLETA / CARRETO*\n\n';
+  if(d.carreto)m+='🚛 *Motorista:* '+d.carreto+'\n';
+  if(d.nf)m+='📄 *Nota Fiscal:* '+d.nf+'\n';
+  if(d.cliente)m+='👤 *Cliente:* '+d.cliente+'\n';
+  if(d.telefone)m+='📞 *Telefone:* '+d.telefone+'\n';
+  if(d.endereco||d.bairro||d.cep){m+='\n📍 *Endereço de Entrega:*\n';if(d.endereco)m+=d.endereco+'\n';if(d.bairro)m+=d.bairro+'\n';if(d.cep)m+='CEP: '+d.cep+'\n';}
+  if(d.data)m+='\n📅 *Data de Retirada:* '+d.data+'\n';
+  if(pag(d))m+='💰 *Pagamento do Frete:* '+pag(d)+'\n';
+  if(d.obs)m+='\n📝 *Observações:*\n'+d.obs+'\n';
+  return m.trim();
+}
+function msgs(){$('pc').innerText=txtC();$('pm').innerText=txtM();}
+function copiar(t){navigator.clipboard.writeText(t==='c'?txtC():txtM()).then(()=>toast('Mensagem copiada!'));}
+function whats(){
+  let n=$('telefone').value.replace(/\D/g,'');if(n.length<10){toast('Informe um telefone válido.');return;}
+  if(!n.startsWith('55'))n='55'+n;window.open('https://wa.me/'+n+'?text='+encodeURIComponent(txtC()),'_blank');
+}
+
+/* ---------- PDF ---------- */
+function pdf(){
+  const d=dados();
+  const L=[['Motorista',d.carreto],['Nota Fiscal',d.nf],['Cliente',d.cliente],['Telefone',d.telefone],['Endereço',d.endereco],['Bairro / Cidade / UF',d.bairro],['CEP',d.cep],['Data de Retirada',d.data],['Pagamento do Frete',pag(d)],['Observações',d.obs]].filter(l=>l[1]);
+  if(!L.length){toast('Preencha os dados antes.');return;}
+  const el=document.createElement('div');
+  el.style.cssText='position:fixed;top:0;left:0;width:700px;background:#fff;color:#000;padding:30px;font-family:Arial,sans-serif;z-index:-1';
+  el.innerHTML='<h2 style="text-align:center;color:#0b4fa8;border-bottom:3px solid #0b4fa8;padding-bottom:10px;margin:0 0 6px">Artana Multistore</h2><p style="text-align:center;margin:0 0 18px;color:#555">Solicitação de Coleta / Carreto</p><table style="width:100%;border-collapse:collapse;font-size:14px">'+
+    L.map(l=>'<tr><td style="padding:8px;border-bottom:1px solid #ddd;font-weight:bold;width:34%;vertical-align:top">'+esc(l[0])+'</td><td style="padding:8px;border-bottom:1px solid #ddd;white-space:pre-wrap">'+esc(l[1])+'</td></tr>').join('')+'</table>';
+  document.body.appendChild(el);window.scrollTo(0,0);
+  html2pdf().set({margin:10,filename:'Coleta_NF_'+(d.nf||'sem-numero')+'.pdf',image:{type:'jpeg',quality:.98},html2canvas:{scale:2,scrollX:0,scrollY:0,backgroundColor:'#ffffff'},jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}})
+    .from(el).save().then(()=>{el.remove();toast('PDF gerado!');}).catch(()=>{el.remove();toast('Erro ao gerar PDF.');});
+}
+
+/* ---------- Leitura da DANFE ---------- */
+async function lerPDF(inp){
+  const f=inp.files[0];if(!f)return;const s=$('upS');s.textContent='Lendo Nota Fiscal...';
+  try{
+    const p=await pdfjsLib.getDocument({data:await f.arrayBuffer()}).promise;let t='';
+    for(let i=1;i<=p.numPages;i++){const c=await (await p.getPage(i)).getTextContent();t+=c.items.map(x=>x.str).join(' ')+' ';}
+    const g=(re,i=1)=>{const m=t.match(re);return m?m[i].trim():'';};
+    const nf=g(/N[º°o.]*\s*(\d{3}\.?\d{3}|\d{6,9})/i).replace(/\./g,'');
+    const cli=g(/DESTINATÁRIO\/REMETENTE[\s\S]*?NOME\/RAZÃO SOCIAL\s*([A-Za-zÀ-ÿ\s]+?)(?=\s*CNPJ|\s*ENDEREÇO)/i);
+    const end=g(/ENDEREÇO\s*([A-Za-zÀ-ÿ0-9\s,\.-]+?)(?=\s*BAIRRO|\s*MUNICIPIO)/i);
+    const bai=g(/BAIRRO\s*([A-Za-zÀ-ÿ0-9\s]+?)(?=\s*UF|\s*CEP)/i),mun=g(/MUNICIPIO\s*([A-Za-zÀ-ÿ\s]+?)(?=\s*UF|\s*INSC)/i),uf=g(/\bUF\s*([A-Z]{2})\b/);
+    const cep=g(/\d{2}\.?\d{3}-?\d{3}/,0),fone=g(/\(\d{2}\)\s*\d{4,5}-?\d{4}/,0);
+    if(nf)$('nf').value=nf;if(cli)$('cliente').value=cli;if(end)$('endereco').value=end;
+    let b=bai;if(mun)b+=(b?' - ':'')+mun;if(uf)b+='/'+uf;if(b)$('bairro').value=b;
+    if(cep)$('cep').value=cep;if(fone)$('telefone').value=fone;
+    s.textContent='Dados extraídos! Confira antes de salvar.';msgs();
+  }catch(e){s.textContent='Não foi possível ler este PDF.';}
+}
+
+/* ---------- Máscaras e eventos ---------- */
+const mT=v=>{v=v.replace(/\D/g,'').slice(0,11);return v.length>10?v.replace(/(\d{2})(\d{5})(\d{4})/,'($1) $2-$3'):v.length>6?v.replace(/(\d{2})(\d{4})(\d{0,4})/,'($1) $2-$3'):v;};
+const mC=v=>{v=v.replace(/\D/g,'').slice(0,8);return v.length>5?v.slice(0,5)+'-'+v.slice(5):v;};
+const mD=v=>{v=v.replace(/\D/g,'').slice(0,8);return v.replace(/(\d{2})(\d{0,2})(\d{0,4})/,(m,a,b,c)=>a+(b?'/'+b:'')+(c?'/'+c:''));};
+AG.forEach(c=>$(c).addEventListener('input',()=>{
+  if(c==='telefone')$(c).value=mT($(c).value);if(c==='cep')$(c).value=mC($(c).value);if(c==='data')$(c).value=mD($(c).value);msgs();
+}));
+$('mt').addEventListener('input',e=>e.target.value=mT(e.target.value));
+$('carreto').addEventListener('change',()=>{
+  if($('valor').value)return;
+  const u=A.slice().reverse().find(r=>r.carreto===$('carreto').value&&r.valor);
+  if(u){$('valor').value=u.valor;if(!$('pagamento').value)$('pagamento').value=u.pagamento||'';msgs();toast('Valor habitual do motorista preenchido.');}
+});
+
+ld();ui();st();aviso();puxar();
+window.addEventListener('focus',()=>puxar());window.addEventListener('online',()=>puxar());
+</script>
+</body>
+</html>
