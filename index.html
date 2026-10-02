@@ -2,8 +2,12 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
+<meta name="author" content="Abner Jezrrel">
+<meta name="application-name" content="Artana Multistore">
+<meta name="technical-responsible" content="Abner Jezrrel">
+
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Artana Multistore · Coletas e Carretos</title>
+<title>Artana Multistore · Gestão de Coletas e Carretos</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -12,10 +16,13 @@
 *{box-sizing:border-box}
 body{margin:0;font-family:'Segoe UI',system-ui,Arial,sans-serif;background:var(--bg);color:var(--tx)}
 header{background:linear-gradient(135deg,var(--az2),var(--az));color:#fff;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
-header h1{margin:0;font-size:19px}header small{opacity:.8;display:block;font-size:12px}
-header .hb{display:flex;gap:8px}
-header button{background:#fff;color:var(--az);border:0;border-radius:8px;padding:9px 14px;font-weight:700;cursor:pointer}
-.wrap{max-width:820px;margin:16px auto;padding:0 12px}
+header h1{margin:0;font-size:19px}header small{opacity:.8;display:block;font-size:12px}.hb button{border:1px solid rgba(255,255,255,.35);border-radius:8px;padding:9px 12px;background:rgba(255,255,255,.12);color:#fff;font-weight:600;cursor:pointer}.hb button:hover{background:rgba(255,255,255,.2)}
+
+.main-tabs{display:flex;background:#fff;border-bottom:1px solid var(--bd);padding:0 15px;overflow-x:auto;box-shadow:0 2px 4px rgba(0,0,0,.03)}
+.mtab{padding:12px 18px;background:none;border:0;font-weight:600;color:#556;cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap}
+.mtab.on{color:var(--az);border-bottom-color:var(--az)}
+
+.wrap{max-width:960px;margin:16px auto;padding:0 12px}
 .card{background:#fff;border:1px solid var(--bd);border-radius:12px;padding:18px;margin-bottom:14px;box-shadow:0 2px 8px rgba(11,79,168,.07)}
 h3{margin:0 0 12px;color:var(--az);font-size:15px}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}.full{grid-column:1/-1}.g{margin-bottom:11px}
@@ -24,147 +31,386 @@ input,select,textarea{width:100%;padding:9px 10px;border:1px solid var(--bd);bor
 input:focus,select:focus,textarea:focus{outline:2px solid var(--az3);border-color:var(--az)}
 textarea{height:58px;resize:vertical}
 .row{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
-.btn{border:0;border-radius:8px;padding:10px 14px;font-weight:600;cursor:pointer;background:var(--az);color:#fff;flex:1;min-width:120px;font-size:14px}
+.btn{border:0;border-radius:8px;padding:10px 14px;font-weight:600;cursor:pointer;background:var(--az);color:#fff;flex:1;min-width:120px;font-size:14px;text-align:center}
 .btn.o{background:#fff;color:var(--az);border:1px solid var(--az)}.btn.r{background:#c0392b}.btn.v{background:#1f9d57}
-.btn:hover{filter:brightness(1.08)}
+.btn:hover{filter:brightness(1.08)}.btn.active{background:var(--az);color:#fff;border-color:var(--az)}
 .prev{background:var(--az3);border:1px solid var(--bd);border-radius:8px;padding:12px;white-space:pre-wrap;font:13px/1.5 Consolas,monospace}
 .up{border:2px dashed var(--az);background:var(--az3);border-radius:10px;padding:14px;text-align:center;margin-bottom:14px}
-#modal{position:fixed;inset:0;background:rgba(8,30,66,.55);display:none;align-items:flex-start;justify-content:center;overflow:auto;padding:20px 10px;z-index:50}
-#modal.on{display:flex}
+
+/* Cores das Etiquetas de Status exatas (sem pintar o fundo do card) */
+.badge{padding:3px 8px;border-radius:4px;font-size:11px;font-weight:700;color:white;text-transform:uppercase;display:inline-block}
+.badge-agendado{background-color:#f97316;} /* Laranja */
+.badge-em-rota{background-color:#0ea5e9;} /* Azul */
+.badge-cancelado{background-color:#ef4444;} /* Vermelho */
+.badge-entregue{background-color:#22c55e;} /* Verde */
+
+/* Tabela Estilizada para os Fretes do Dia */
+.table-fretes{width:100%;border-collapse:collapse;margin-top:10px;font-size:14px}
+.table-fretes th,.table-fretes td{padding:10px 12px;border-bottom:1px solid var(--bd);text-align:left}
+.table-fretes th{background:var(--az3);color:var(--az);font-weight:600}
+
+/* Modal / Calendário */
+.modal{position:fixed;inset:0;background:rgba(8,30,66,.55);display:none;align-items:flex-start;justify-content:center;overflow:auto;padding:20px 10px;z-index:50}
+.modal.on{display:flex}
 .box{background:#fff;border-radius:14px;width:100%;max-width:860px;padding:18px}
-.tabs{display:flex;gap:6px;margin-bottom:12px}
-.tab{flex:1;padding:9px;border:0;border-radius:8px;background:var(--az3);color:var(--az);font-weight:700;cursor:pointer}.tab.on{background:var(--az);color:#fff}
-.nav{display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap}
-.nav b{flex:1;text-align:center;color:var(--az)}
-.fl{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px}
-.day h4{margin:12px 0 4px;padding:6px 10px;background:var(--az);color:#fff;border-radius:8px;font-size:13px;display:flex;justify-content:space-between}
+.calendar-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;text-align:center;margin-top:10px}
+.calendar-day-header{font-weight:bold;font-size:12px;color:#64748b;padding:8px 0}
+.calendar-cell{min-height:85px;border:1px solid var(--bd);border-radius:6px;padding:6px;font-size:12px;background:#fff;text-align:left;display:flex;flex-direction:column;justify-content:flex-start}
+.calendar-cell.has-frete{background:#eff6ff;border-color:#bfdbfe}
+.calendar-cell strong{font-size:13px;color:var(--az2)}
+
 .it{display:grid;grid-template-columns:1fr auto;gap:6px;border-bottom:1px solid var(--bd);padding:8px 4px;font-size:13px}
 .it small{color:#667}
 .mini{border:0;border-radius:6px;padding:4px 8px;cursor:pointer;background:var(--az3);color:var(--az);font-weight:700}
 .sel{width:auto!important;padding:4px!important}
+
 #toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#142a4d;color:#fff;padding:10px 18px;border-radius:8px;opacity:0;transition:.3s;pointer-events:none;z-index:99}
 #toast.on{opacity:1}
-@media(max-width:600px){.grid,.fl{grid-template-columns:1fr}}
+
+@media print {
+  body * { visibility: hidden; }
+  #print-area, #print-area * { visibility: visible; }
+  #print-area { position: absolute; left: 0; top: 0; width: 100%; }
+  .no-print { display: none !important; }
+}
+@media(max-width:600px){.grid{grid-template-columns:1fr}.fl{display:grid;grid-template-columns:1fr;gap:8px}.calendar-grid{gap:3px}.calendar-cell{min-height:70px;padding:4px}.calendar-cell .badge{font-size:9px;padding:2px 4px}}
 </style>
 </head>
 <body>
-<header>
+<header class="no-print">
   <div><h1>Artana Multistore</h1><small>Gestão de Coletas e Carretos</small></div>
-  <div class="hb"><button onclick="abrir('ag')">📅 Agendamentos</button><button onclick="abrir('mot')">🚛 Motoristas</button></div>
+  <div class="hb">
+    <button onclick="baixar()">📥 Backup Excel</button>
+  </div>
 </header>
+
+<!-- ABAS DE NAVEGAÇÃO PRINCIPAL -->
+<div class="main-tabs no-print">
+  <button class="mtab on" id="tab-hoje" onclick="mudarAba('hoje')">🚚 Fretes de Hoje</button>
+  <button class="mtab" id="tab-novo" onclick="mudarAba('novo')">📝 Novo Agendamento</button>
+  <button class="mtab" id="tab-consulta" onclick="mudarAba('consulta')">🔍 Filtros & Períodos</button>
+  <button class="mtab" id="tab-motoristas" onclick="mudarAba('motoristas')">🚛 Motoristas</button>
+  <button class="mtab" id="tab-config" onclick="mudarAba('config')">☁️ Configurações / Planilha</button>
+</div>
 
 <div class="wrap">
   <div id="aviso" style="display:none;background:#fff3cd;border:1px solid #ffe08a;color:#6b4e00;padding:10px 14px;border-radius:10px;margin-bottom:14px;font-size:13px"></div>
-  <div class="card">
-    <h3>☁️ Banco de dados (Google Planilhas)</h3>
-    <small id="xs" style="display:block;color:#556"></small>
-    <div class="grid" style="margin-top:10px">
-      <div class="g"><label>Link do Apps Script (termina em /exec)</label><input id="url" placeholder="https://script.google.com/macros/s/.../exec"></div>
-      <div class="g"><label>Senha (a mesma colocada no script)</label><input id="tk" type="password" autocomplete="off"></div>
-    </div>
-    <div class="row">
-      <button class="btn v" onclick="salvarCfg()">🔗 Conectar</button>
-      <button class="btn" onclick="sync()">🔄 Sincronizar</button>
-      <button class="btn o" onclick="baixar()">📥 Baixar cópia (Excel)</button>
-      <button class="btn o" onclick="$('imp').click()">📤 Importar Excel</button>
-      <input type="file" id="imp" accept=".xlsx,.xls" style="display:none" onchange="importar(this)">
-    </div>
-  </div>
 
-  <div class="card">
-    <h3>📝 Novo agendamento</h3>
-    <div class="up">
-      <label for="pdfFile" style="cursor:pointer;color:var(--az)">📄 Subir PDF da Nota Fiscal (DANFE)</label>
-      <input type="file" id="pdfFile" accept="application/pdf" onchange="lerPDF(this)">
-      <small id="upS" style="color:#667">Preenchimento automático.</small>
-    </div>
-    <div class="grid">
-      <div class="g"><label>Nota Fiscal</label><input id="nf" placeholder="043276"></div>
-      <div class="g"><label>Data de retirada / entrega</label><input id="data" placeholder="dd/mm/aaaa"></div>
-      <div class="g"><label>Cliente</label><input id="cliente"></div>
-      <div class="g"><label>Telefone</label><input id="telefone" placeholder="(11) 90000-0000" inputmode="tel"></div>
-      <div class="g full"><label>Endereço de entrega</label><input id="endereco"></div>
-      <div class="g"><label>Bairro / Cidade / UF</label><input id="bairro"></div>
-      <div class="g"><label>CEP</label><input id="cep" inputmode="numeric" placeholder="00000-000"></div>
-      <div class="g"><label>Motorista</label><select id="carreto"></select></div>
-      <div class="g"><label>Status</label><select id="status"><option>Agendada</option><option>Em rota</option><option>Entregue</option><option>Cancelada</option></select></div>
-      <div class="g"><label>Valor do frete (R$)</label><input id="valor" placeholder="700,00" inputmode="decimal"></div>
-      <div class="g"><label>Quem paga o frete</label><select id="pagamento"><option value="">— selecione —</option><option>Cliente paga no local</option><option>Loja paga</option><option>Já pago</option><option>A combinar</option></select></div>
-      <div class="g full"><label>Observações</label><textarea id="obs"></textarea></div>
-    </div>
-    <div class="row">
-      <button class="btn v" id="bSalvar" onclick="salvar()">💾 Salvar agendamento</button>
-      <button class="btn r" onclick="limpar()">🗑️ Limpar</button>
-    </div>
-  </div>
-
-  <div class="card">
-    <h3>📱 Mensagem para o cliente</h3><div class="prev" id="pc"></div>
-    <div class="row"><button class="btn" onclick="copiar('c')">Copiar</button><button class="btn v" onclick="whats()">Abrir no WhatsApp</button></div>
-    <h3 style="margin-top:16px">🚛 Mensagem para o motorista</h3><div class="prev" id="pm"></div>
-    <div class="row"><button class="btn" onclick="copiar('m')">Copiar</button><button class="btn o" onclick="pdf()">Baixar PDF</button></div>
-  </div>
-</div>
-
-<div id="modal" onclick="if(event.target===this)fechar()">
-  <div class="box">
-    <div class="tabs"><button class="tab" id="t-ag" onclick="aba('ag')">📅 Agendamentos</button><button class="tab" id="t-mot" onclick="aba('mot')">🚛 Motoristas</button></div>
-
-    <div id="p-ag">
-      <div class="nav">
-        <button class="mini" onclick="mover(-1)">◀</button><b id="semT"></b><button class="mini" onclick="mover(1)">▶</button>
-        <button class="mini" onclick="hoje()">Esta semana</button>
+  <!-- ABA 1: FRETES DE HOJE & BOTÃO CALENDÁRIO -->
+  <div id="aba-hoje" class="aba-conteudo">
+    <div class="card no-print" style="background:var(--az3);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+      <div>
+        <h3 style="margin:0;color:var(--az2)">Visão Geral por Calendário</h3>
+        <small style="color:#556">Visualize todos os fretes agendados organizados por dia no mês.</small>
       </div>
-      <div class="fl">
-        <select id="fs" onchange="render()"><option value="">Todos os status</option><option value="p">Pendentes (Agendada + Em rota)</option><option>Agendada</option><option>Em rota</option><option>Entregue</option><option>Cancelada</option></select>
-        <select id="fm" onchange="render()"></select>
-      </div>
-      <div id="lista"></div>
-      <small id="tot" style="display:block;margin:10px 0;color:#556"></small>
-      <div class="row"><button class="btn" onclick="copiarSem()">📋 Copiar a semana</button><button class="btn" onclick="copiarTodos()">📋 Copiar TODOS</button><button class="btn o" onclick="fechar()">Fechar</button></div>
+      <button class="btn v" onclick="abrirCalendarioModal()" style="min-width:auto;padding:8px 16px">📅 Calendário de Fretes</button>
     </div>
 
-    <div id="p-mot" style="display:none">
-      <h3>Motoristas cadastrados</h3>
+    <div class="card" id="print-area">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:10px">
+        <h3 style="margin:0">FRETES DE HOJE — <span id="txt-data-hoje"></span></h3>
+        <div class="row no-print" style="margin:0">
+          <button class="btn o" style="padding:6px 12px;font-size:13px" onclick="copiarFretesDia()">📋 Copiar fretes do dia</button>
+          <button class="btn v" style="padding:6px 12px;font-size:13px" onclick="window.print()">🖨️ Imprimir / PDF</button>
+        </div>
+      </div>
+      <div id="lembretes-fretes" class="no-print" style="display:none"></div>
+      <div id="tabela-fretes-dia-container">
+        <small>Nenhum frete agendado para hoje.</small>
+      </div>
+    </div>
+  </div>
+
+  <!-- ABA 2: NOVO AGENDAMENTO -->
+  <div id="aba-novo" class="aba-conteudo" style="display:none">
+    <div class="card">
+      <h3>📝 Novo Agendamento</h3>
+      <div class="up">
+        <label for="pdfFile" style="cursor:pointer;color:var(--az)">📄 Subir PDF da Nota Fiscal (DANFE)</label>
+        <input type="file" id="pdfFile" accept="application/pdf" onchange="lerPDF(this)">
+        <small id="upS" style="color:#667">Preenchimento automático.</small>
+      </div>
+      <div class="grid">
+        <div class="g"><label>Nota Fiscal</label><input id="nf" placeholder="043276"></div>
+        <div class="g"><label>Data de retirada / entrega</label><input id="data" placeholder="dd/mm/aaaa"></div>
+        <div class="g"><label>Cliente</label><input id="cliente"></div>
+        <div class="g"><label>Telefone</label><input id="telefone" placeholder="(11) 90000-0000" inputmode="tel"></div>
+        <div class="g full"><label>Endereço de entrega</label><input id="endereco"></div>
+        <div class="g"><label>Bairro / Cidade / UF</label><input id="bairro"></div>
+        <div class="g"><label>CEP</label><input id="cep" inputmode="numeric" placeholder="00000-000"></div>
+        <div class="g"><label>Motorista</label><select id="carreto"></select></div>
+        <div class="g"><label>Status</label><select id="status"><option>Agendado</option><option>Em rota</option><option>Entregue</option><option>Cancelado</option></select></div>
+        <div class="g"><label>Valor do frete (R$)</label><input id="valor" placeholder="700,00" inputmode="decimal"></div>
+        <div class="g"><label>Quem paga o frete</label><select id="pagamento"><option value="">— selecione —</option><option>Cliente paga no local</option><option>Loja paga</option><option>Já pago</option><option>A combinar</option></select></div>
+        <div class="g full"><label>Observações</label><textarea id="obs"></textarea></div>
+      </div>
+      <div class="row">
+        <button class="btn v" id="bSalvar" onclick="salvar()">💾 Salvar agendamento</button>
+        <button class="btn r" onclick="limpar()">🗑️ Limpar</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>📱 Mensagem para o cliente</h3><div class="prev" id="pc"></div>
+      <div class="row"><button class="btn" onclick="copiar('c')">Copiar</button><button class="btn v" onclick="whats()">Abrir no WhatsApp</button></div>
+      <h3 style="margin-top:16px">🚛 Mensagem para o motorista</h3><div class="prev" id="pm"></div>
+      <div class="row"><button class="btn" onclick="copiar('m')">Copiar</button><button class="btn o" onclick="pdf()">Baixar PDF</button></div>
+    </div>
+  </div>
+
+  <!-- ABA 3: FILTRO DE PERÍODO & CONSULTA -->
+  <div id="aba-consulta" class="aba-conteudo" style="display:none">
+    <div class="card">
+      <h3>🔍 Filtros de Período e Agendamentos</h3>
+      <div class="row" style="margin-bottom:12px; gap:6px;">
+        <button class="btn o" id="btn-f-hoje" onclick="setFiltroPeriodo('hoje')">Hoje</button>
+        <button class="btn o" id="btn-f-semana" onclick="setFiltroPeriodo('semana')">Esta semana</button>
+        <button class="btn o" id="btn-f-pers" onclick="setFiltroPeriodo('personalizado')">Período personalizado</button>
+      </div>
+
+      <div id="box-pers-datas" style="display:none; gap:10px; margin-bottom:12px; align-items:center; background:var(--az3); padding:12px; border-radius:8px;">
+        <div style="flex:1"><label>Data inicial</label><input type="date" id="filtro-ini" onchange="renderConsulta()"></div>
+        <div style="flex:1"><label>Data final</label><input type="date" id="filtro-fim" onchange="renderConsulta()"></div>
+      </div>
+
+      <div class="fl" style="margin-bottom:12px">
+        <select id="filtro-status" onchange="renderConsulta()"><option value="">Todos os status</option><option value="p">Pendentes (Agendado + Em rota)</option><option>Agendado</option><option>Em rota</option><option>Entregue</option><option>Cancelado</option></select>
+        <select id="filtro-mot" onchange="renderConsulta()"></select>
+      </div>
+
+      <div id="lista-consulta"></div>
+      <small id="tot-consulta" style="display:block;margin:10px 0;color:#556"></small>
+      <div class="row"><button class="btn" onclick="copiarConsulta()">📋 Copiar Período Filtrado</button></div>
+    </div>
+  </div>
+
+  <!-- ABA 4: MOTORISTAS -->
+  <div id="aba-motoristas" class="aba-conteudo" style="display:none">
+    <div class="card">
+      <h3>🚛 Motoristas cadastrados</h3>
       <div id="listaM"></div>
       <h3 style="margin-top:16px">➕ Cadastrar motorista</h3>
       <div class="grid">
         <div class="g"><label>Nome</label><input id="mn" placeholder="Ex: Edmar"></div>
-        <div class="g"><label>Telefone (opcional)</label><input id="mt" placeholder="(11) 90000-0000" inputmode="tel"></div>
+        <div class="g"><label>Telefone</label><input id="mt" placeholder="(11) 90000-0000" inputmode="tel"></div>
       </div>
-      <div class="row"><button class="btn v" onclick="cadM()">Cadastrar e atualizar Excel</button><button class="btn o" onclick="fechar()">Fechar</button></div>
+      <div class="row"><button class="btn v" onclick="cadM()">Cadastrar motorista</button></div>
+    </div>
+  </div>
+
+  <!-- ABA 5: CONFIGURAÇÕES -->
+  <div id="aba-config" class="aba-conteudo" style="display:none">
+    <div class="card">
+      <h3>☁️ Banco de dados (Google Planilhas)</h3>
+      <small id="xs" style="display:block;color:#556;margin-bottom:10px"></small>
+      <div class="grid" style="margin-top:10px">
+        <div class="g"><label>Link do Apps Script (termina em /exec)</label><input id="url" placeholder="https://script.google.com/macros/s/.../exec"></div>
+        <div class="g"><label>Senha</label><input id="tk" type="password" autocomplete="new-password"></div>
+      </div>
+      <div class="row">
+        <button class="btn v" onclick="salvarCfg()">🔗 Conectar</button>
+        <button class="btn" onclick="sync()">🔄 Sincronizar</button>
+        <button class="btn o" onclick="$('imp').click()">📤 Importar Excel</button>
+        <input type="file" id="imp" accept=".xlsx,.xls" style="display:none" onchange="importar(this)">
+      </div>
     </div>
   </div>
 </div>
+
+<!-- MODAL DO CALENDÁRIO DE FRETES -->
+<div id="modal-calendario" class="modal" onclick="if(event.target===this)fecharCalendarioModal()">
+  <div class="box" style="max-width:750px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <h3 style="margin:0;color:var(--az)">📅 Calendário de Fretes</h3>
+      <button class="mini" onclick="fecharCalendarioModal()">✕ Fechar</button>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:10px">
+      <button class="mini" onclick="mudarMesCalendario(-1)" aria-label="Mês anterior">◀</button>
+      <p id="cal-mes-ano" style="margin:0;min-width:170px;text-align:center;font-weight:600;color:#556"></p>
+      <button class="mini" onclick="mudarMesCalendario(1)" aria-label="Próximo mês">▶</button>
+    </div>
+    <div class="calendar-grid" id="calendar-grid"></div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
 const AG=['data','nf','cliente','telefone','endereco','bairro','cep','carreto','pagamento','valor','status','obs'];
 const AGH=['Data','NF','Cliente','Telefone','Endereço','Bairro/Cidade/UF','CEP','Motorista','Quem paga','Valor Frete (R$)','Status','Observações','ID'];
-const ST=['Agendada','Em rota','Entregue','Cancelada'];
+const ST=['Agendado','Em rota','Entregue','Cancelado'];
 const DIAS=['Segunda','Terça','Quarta','Quinta','Sexta','Sábado','Domingo'];
-const KA='ag_v2',KM='mot_v2',TIPOS=[{description:'Planilha Excel',accept:{'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx']}}];
+const KA='artana_ag_v6',KM='artana_mot_v6';
 const $=id=>document.getElementById(id);
-const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({
+  '&':'&amp;',
+  '<':'&lt;',
+  '>':'&gt;',
+  '"':'&quot;',
+  "'":'&#39;'
+}[c]));
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
-let A=[],M=[],editId=null,sem=seg(new Date());
+let A=[],M=[],editId=null,tipoFiltroPeriodo='hoje',calOffset=0;
+const KN='artana_notificacoes_v1';
+const KMN='artana_motoristas_lembretes_v1';
+let notificacoes=[];
+let preferenciasMotoristas={};
+try{preferenciasMotoristas=JSON.parse(localStorage.getItem(KMN)||'{}');if(!preferenciasMotoristas||typeof preferenciasMotoristas!=='object')preferenciasMotoristas={};}catch(e){preferenciasMotoristas={};}
+try{notificacoes=JSON.parse(localStorage.getItem(KN)||'[]');if(!Array.isArray(notificacoes))notificacoes=[];}catch(e){notificacoes=[];}
+
+function salvarNotificacoes(){try{localStorage.setItem(KN,JSON.stringify(notificacoes));}catch(e){}}
+function salvarPreferenciasMotoristas(){try{localStorage.setItem(KMN,JSON.stringify(preferenciasMotoristas));}catch(e){}}
+function aplicarPreferenciasMotoristas(){M=M.map(m=>({...m,notificar:preferenciasMotoristas[m.nome]===true}));}
+function hojeData(){return new Date().toLocaleDateString('pt-BR');}
+function inicioHoje(){const d=new Date();d.setHours(0,0,0,0);return d;}
+function dataFrete(r){return pd(r&&r.data);}
+function freteCancelado(r){return String(r&&r.status||'').toLowerCase().includes('cancelad');}
+function freteConcluido(r){return String(r&&r.status||'').toLowerCase().includes('entregue');}
+
+/* Lembrete operacional:
+   - amanhã: "Separar pedido para amanhã"
+   - antes de hoje: "Pedido atrasado"
+   - hoje não gera lembrete
+   - fretes cancelados/entregues não geram lembrete
+*/
+function tipoLembrete(r){
+  const d=dataFrete(r),h=inicioHoje();
+  if(!d||freteCancelado(r)||freteConcluido(r))return null;
+  d.setHours(0,0,0,0);
+  const amanha=addD(h,1);
+  if(d.getTime()===amanha.getTime())return 'amanha';
+  if(d<h)return 'atrasado';
+  return null;
+}
+function normalizarNotificacoes(){
+  aplicarPreferenciasMotoristas();
+  const ids=new Set(A.map(r=>r.id));
+  notificacoes=notificacoes.filter(n=>ids.has(n.id));
+  A.forEach(r=>{
+    if(!r.id||!r.carreto)return;
+    const mot=M.find(m=>m.nome===r.carreto);
+    if(!mot||!mot.notificar)return;
+    const tipo=tipoLembrete(r);
+    if(!tipo)return;
+    if(!notificacoes.some(n=>n.id===r.id)){
+      notificacoes.push({id:r.id,motorista:r.carreto,criada:Date.now(),feito:false,tipo});
+    }
+  });
+  notificacoes.forEach(n=>{
+    const r=A.find(x=>x.id===n.id);
+    if(r){n.motorista=r.carreto||n.motorista;n.tipo=tipoLembrete(r)||n.tipo;}
+  });
+  salvarNotificacoes();
+}
+function renderLembretes(){
+  normalizarNotificacoes();
+  const h=inicioHoje();
+  const pend=notificacoes
+    .filter(n=>{
+      const r=A.find(x=>x.id===n.id);
+      return !n.feito&&r&&tipoLembrete(r);
+    })
+    .sort((a,b)=>{
+      const ra=A.find(x=>x.id===a.id),rb=A.find(x=>x.id===b.id);
+      const da=dataFrete(ra),db=dataFrete(rb);
+      return (da-db)||((a.criada||0)-(b.criada||0));
+    });
+
+  const c=$('lembretes-fretes');
+  if(!c)return;
+  if(!pend.length){c.style.display='none';c.innerHTML='';return;}
+
+  c.style.display='block';
+  c.innerHTML=`<div class="lembretes-box">
+    <div class="lembretes-titulo">
+      <span>🔔 LEMBRETES DE CONTROLE</span>
+      <span style="font-size:11px;font-weight:700;color:#7a6a3a">${pend.length} pendência${pend.length>1?'s':''}</span>
+    </div>
+    <div class="lembretes-lista">${pend.map(n=>{
+      const r=A.find(x=>x.id===n.id);
+      const tipo=tipoLembrete(r);
+      const atras=tipo==='atrasado';
+      return `<div class="lembrete-item ${atras?'atrasado':''}">
+        <div class="lembrete-icone">${atras?'🚨':'📦'}</div>
+        <div class="lembrete-corpo" onclick="abrirFreteNotificacao('${n.id}')" style="cursor:pointer">
+          <div class="lembrete-titulo">${atras?'Pedido atrasado':'Separar pedido para amanhã'} ${atras?'<span class="badge-lembrete-atrasado">ATRASADO</span>':''}</div>
+          <div class="lembrete-detalhe"><b>${esc(r.cliente||'Cliente')}</b> · NF ${esc(r.nf||'S/N')} · ${esc(r.carreto||'Sem motorista')} · ${esc(r.data||'Sem data')}</div>
+        </div>
+        <button class="btn-lembrete-feito" onclick="marcarNotificacaoFeita('${n.id}')">✓ Feito</button>
+      </div>`;
+    }).join('')}</div>
+  </div>`;
+}
+function marcarNotificacaoFeita(id){
+  const n=notificacoes.find(x=>x.id===id);
+  if(!n)return;
+  n.feito=true;n.feitoEm=Date.now();
+  salvarNotificacoes();renderLembretes();uiMotoristas();
+  toast('Lembrete marcado como feito.');
+}
+function abrirFreteNotificacao(id){
+  const r=A.find(x=>x.id===id);if(!r)return;
+  preencher(r);editId=id;$('bSalvar').textContent='💾 Atualizar agendamento';mudarAba('novo');
+}
+function toggleNotificacaoMotorista(i){
+  if(!M[i])return;
+  const nome=M[i].nome;
+  const novo=!M[i].notificar;
+  M[i].notificar=novo;
+  preferenciasMotoristas[nome]=novo;
+  salvarPreferenciasMotoristas();
+  loc();
+  if(novo) normalizarNotificacoes();
+  else notificacoes=notificacoes.filter(n=>n.motorista!==nome||n.feito);
+  salvarNotificacoes();
+  Q.push({a:'mot',list:M.map(m=>({nome:m.nome,tel:m.tel||''}))});salvarQ();st();flush();
+  renderLembretes();
+  uiMotoristas();
+  toast(novo?'🔔 Lembretes ativados para '+nome:'🔕 Lembretes desativados para '+nome);
+}
+
+
 let LS=true;try{localStorage.setItem('_t','1');localStorage.removeItem('_t');}catch(e){LS=false;}
-function aviso(){const m=LS?'':'⚠️ Esta janela bloqueia o armazenamento do navegador: abra o arquivo direto no Chrome/Edge (ou hospedado) para não perder alterações pendentes.';$('aviso').textContent=m;$('aviso').style.display=m?'':'none';}
+
+function aviso(){const m=LS?'':'⚠️ Armazenamento restrito.';$('aviso').textContent=m;$('aviso').style.display=m?'':'none';}
 function toast(m){const t=$('toast');t.textContent=m;t.classList.add('on');setTimeout(()=>t.classList.remove('on'),2400);}
 function num(v){let s=String(v??'').replace(/[^\d,.-]/g,'');if(!s)return NaN;if(s.includes(','))s=s.replace(/\./g,'').replace(',','.');else if(/^\d{1,3}(\.\d{3})+$/.test(s))s=s.replace(/\./g,'');return parseFloat(s);}
 function fmt(v){const n=num(v);return isNaN(n)?'':n.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});}
 function pag(d){return [d.pagamento,fmt(d.valor)].filter(Boolean).join(' - ');}
 function seg(d){const x=new Date(d);x.setHours(0,0,0,0);x.setDate(x.getDate()-((x.getDay()+6)%7));return x;}
-function pd(s){const m=/(\d{2})\/(\d{2})\/(\d{4})/.exec(s||'');return m?new Date(+m[3],+m[2]-1,+m[1]):null;}
+function pd(s){const m=/^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(s||'').trim());if(!m)return null;const d=new Date(+m[3],+m[2]-1,+m[1]);return d.getFullYear()===+m[3]&&d.getMonth()===+m[2]-1&&d.getDate()===+m[1]?d:null;}
 function f5(d){return d.toLocaleDateString('pt-BR').slice(0,5);}
 function addD(d,n){const x=new Date(d);x.setDate(x.getDate()+n);return x;}
 
-/* ---------- Armazenamento ---------- */
+/* Função de Troca de Abas Corrigida */
+function mudarAba(aba){
+  ['hoje','novo','consulta','motoristas','config'].forEach(k=>{
+    const el = $('aba-'+k);
+    const btn = $('tab-'+k);
+    if(el) el.style.display = (k === aba) ? '' : 'none';
+    if(btn) btn.classList.toggle('on', k === aba);
+  });
+  if(aba==='consulta') renderConsulta();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+/* Cores das Etiquetas de Status exatas (sem pintar o fundo do card) */
+function badgeStatus(stStr){
+  let st=(stStr||'Agendado').toLowerCase();
+  if(st.includes('rota')) return '<span class="badge badge-em-rota">Em rota</span>';
+  if(st.includes('entregue')) return '<span class="badge badge-entregue">Entregue</span>';
+  if(st.includes('cancelad')) return '<span class="badge badge-cancelado">Cancelado</span>';
+  return '<span class="badge badge-agendado">Agendado</span>';
+}
+
+/* Armazenamento & Sync */
 function ld(){try{A=JSON.parse(localStorage.getItem(KA)||'[]');M=JSON.parse(localStorage.getItem(KM)||'[]');}catch(e){}
-  if(!M.length)M=['Lalamove','Edmar','Noemia'].map(nome=>({nome,tel:''}));}
+  if(!M.length)M=['Lalamove','Edmar','Noemia'].map(nome=>({nome,tel:''}));
+  aplicarPreferenciasMotoristas();
+  A=A.map(r=>({...r,status:(r.status||'Agendado')==='Agendada'?'Agendado':((r.status||'Agendado')==='Cancelada'?'Cancelado':r.status||'Agendado')}));}
 function loc(){try{localStorage.setItem(KA,JSON.stringify(A));localStorage.setItem(KM,JSON.stringify(M));}catch(e){}}
-function sv(...ops){loc();Q.push(...ops);salvarQ();st();flush();}
+function sv(...ops){loc();Q.push(...ops);salvarQ();st();flush();atualizarTudo();}
 
 function wb(){
   const w=XLSX.utils.book_new();
@@ -176,36 +422,34 @@ function wb(){
   XLSX.utils.book_append_sheet(w,m,'Motoristas');
   return w;
 }
-function unir(f,l){const k=x=>[x.data,x.nf,x.cliente].join('|').toLowerCase();const ks=new Set(f.map(k));return [...f,...l.filter(x=>!ks.has(k(x)))];}
 function parse(buf){
   const w=XLSX.read(buf,{type:'array'});
   const rows=n=>w.Sheets[n]?XLSX.utils.sheet_to_json(w.Sheets[n],{header:1,defval:''}).slice(1):[];
-  const a=rows('Agendamentos').filter(r=>r[1]||r[2]).map(r=>{const o={};AG.forEach((c,i)=>o[c]=String(r[i]).trim());o.id=String(r[12]).trim()||uid();o.status=o.status||'Agendada';return o;});
+  const a=rows('Agendamentos').filter(r=>r[1]||r[2]).map(r=>{const o={};AG.forEach((c,i)=>o[c]=String(r[i]).trim());o.id=String(r[12]).trim()||uid();o.status=(o.status||'Agendado')==='Agendada'?'Agendado':((o.status||'Agendado')==='Cancelada'?'Cancelado':o.status||'Agendado');return o;});
   const m=rows('Motoristas').filter(r=>r[0]).map(r=>({nome:String(r[0]).trim(),tel:String(r[1]).trim()}));
   return {a,m};
 }
-function baixar(){XLSX.writeFile(wb(),'Coletas_backup_'+new Date().toISOString().slice(0,10)+'.xlsx');toast('Cópia baixada!');}
+function baixar(){XLSX.writeFile(wb(),'Coletas_Artana_'+new Date().toISOString().slice(0,10)+'.xlsx');toast('Cópia baixada!');}
 function importar(inp){
   const f=inp.files[0];if(!f)return;const rd=new FileReader();
   rd.onload=e=>{try{const r=parse(e.target.result);const k=x=>[x.data,x.nf,x.cliente].join('|');const ex=new Set(A.map(k));let n=0;const nv=[];
     r.a.forEach(x=>{if(!ex.has(k(x))){A.push(x);nv.push(x);ex.add(k(x));n++;}});
     r.m.forEach(x=>{if(!M.some(y=>y.nome.toLowerCase()===x.nome.toLowerCase()))M.push(x);});
-    sv({a:'bulk',rows:nv},{a:'mot',list:M});ui();toast(n+' agendamento(s) importado(s).');}catch(err){toast('Erro ao ler o arquivo.');}inp.value='';};
+    sv({a:'bulk',rows:nv},{a:'mot',list:M});atualizarTudo();toast(n+' agendamento(s) importado(s).');}catch(err){toast('Erro ao ler arquivo.');}inp.value='';};
   rd.readAsArrayBuffer(f);
 }
 
-/* ---------- Google Planilhas (banco de dados na nuvem) ---------- */
 const URL0='',TK0='';
 const lsg=k=>{try{return localStorage.getItem(k)||'';}catch(e){return '';}};
-let URL_=lsg('sh_url')||URL0,TK=lsg('sh_tk')||TK0,Q=[],syncing=false,erro='';
-try{Q=JSON.parse(lsg('sh_q')||'[]');}catch(e){}
-function salvarQ(){try{localStorage.setItem('sh_q',JSON.stringify(Q));}catch(e){}}
-function msgErro(e){return e instanceof SyntaxError?'resposta inválida: confira se a implantação está com acesso "Qualquer pessoa" e o link termina em /exec':(e.message||'erro');}
+let URL_=lsg('artana_url6')||URL0,TK=lsg('artana_tk6')||TK0,Q=[],syncing=false,erro='';
+try{Q=JSON.parse(lsg('artana_q6')||'[]');}catch(e){}
+function salvarQ(){try{localStorage.setItem('artana_q6',JSON.stringify(Q));}catch(e){}}
+function msgErro(e){return e instanceof SyntaxError?'resposta inválida (/exec)':(e.message||'erro');}
 function st(){
   $('url').value=URL_;$('tk').value=TK;
-  $('xs').textContent=!URL_?'⚠️ Cole o link e a senha do seu Google Apps Script abaixo e clique em Conectar.'
-    :erro?'⚠️ '+erro+(Q.length?' — '+Q.length+' alteração(ões) aguardando envio (ficam salvas aqui até conectar).':'')
-    :'✅ Conectado ao Google Planilhas'+(Q.length?' — enviando '+Q.length+' alteração(ões)...':'. Tudo sincronizado.');
+  $('xs').textContent=!URL_?'⚠️ Cole o link do Apps Script.'
+    :erro?'⚠️ '+erro+(Q.length?' — '+Q.length+' pendente(s).':'')
+    :'✅ Conectado ao Google Planilhas'+(Q.length?' — enviando...':'. Sincronizado.');
 }
 async function api(body){
   const r=await fetch(URL_,{method:'POST',body:JSON.stringify({...body,token:TK})});
@@ -214,7 +458,7 @@ async function api(body){
 async function flush(){
   if(!URL_||syncing)return;syncing=true;
   try{while(Q.length){await api(Q[0]);Q.shift();salvarQ();st();}erro='';}
-  catch(e){erro='Sem conexão com a planilha ('+msgErro(e)+')';}
+  catch(e){erro='Erro de conexão ('+msgErro(e)+')';}
   syncing=false;st();
 }
 async function puxar(){
@@ -223,137 +467,244 @@ async function puxar(){
   try{
     const r=await fetch(URL_+'?token='+encodeURIComponent(TK));const j=await r.json();
     if(!j.ok)throw new Error(j.erro||'erro');
-    A=j.a.map(x=>({...x,status:x.status||'Agendada'}));
-    if(j.m.length){M=j.m;}else{Q.push({a:'mot',list:M});salvarQ();}
-    loc();erro='';ui();
+    A=j.a.map(x=>({...x,status:(x.status||'Agendado')==='Agendada'?'Agendado':((x.status||'Agendado')==='Cancelada'?'Cancelado':x.status||'Agendado')}));
+    if(j.m.length){
+      const prefs={...preferenciasMotoristas};
+      M=j.m.map(m=>({...m,notificar:prefs[m.nome]===true}));
+      aplicarPreferenciasMotoristas();
+    }else{Q.push({a:'mot',list:M.map(m=>({nome:m.nome,tel:m.tel||''}))});salvarQ();}
+    loc();erro='';atualizarTudo();
     if(Q.length)flush();
-  }catch(e){erro='Não consegui ler a planilha ('+msgErro(e)+')';}
+  }catch(e){erro='Falha ao ler planilha ('+msgErro(e)+')';}
   st();
 }
 async function sync(){toast('Sincronizando...');await puxar();toast(erro||'Sincronizado!');}
 function salvarCfg(){
   URL_=$('url').value.trim();TK=$('tk').value.trim();
-  try{localStorage.setItem('sh_url',URL_);localStorage.setItem('sh_tk',TK);}catch(e){}
-  erro='';puxar().then(()=>toast(erro||'Conectado ao Google Planilhas!'));
+  if(URL_ && !/^https:\/\/script\.google\.com\/macros\/s\/[^\s]+\/exec$/.test(URL_)){toast('URL do Apps Script inválida. Ela deve terminar em /exec.');return;}
+  try{localStorage.setItem('artana_url6',URL_);localStorage.setItem('artana_tk6',TK);}catch(e){}
+  erro='';puxar().then(()=>toast(erro||'Conectado!'));
 }
 
-/* ---------- Formulário ---------- */
+/* CRUD Formulario */
 function dados(){const d={};AG.forEach(c=>d[c]=$(c).value.trim());return d;}
 function preencher(d){
   AG.forEach(c=>{const el=$(c),v=d[c]||'';if(el.tagName==='SELECT'&&v&&![...el.options].some(o=>o.value===v||o.text===v))el.add(new Option(v));el.value=v;});
-  if(!$('status').value)$('status').value='Agendada';msgs();
+  if(!$('status').value)$('status').value='Agendado';msgs();
 }
 function salvar(){
   const d=dados();
   if(!d.nf&&!d.cliente){toast('Preencha ao menos o cliente ou a NF.');return;}
-  const dup=d.nf&&A.find(r=>r.nf===d.nf&&r.id!==editId);
-  if(dup&&!confirm('Já existe um registro com a NF '+d.nf+' ('+(dup.cliente||'sem cliente')+', '+(dup.data||'sem data')+').\nSalvar mesmo assim?'))return;
-  const reg={...d,id:editId||uid()},i=A.findIndex(r=>r.id===reg.id);
+  if(d.data){
+    const m=/^(\d{2})\/(\d{2})\/(\d{4})$/.exec(d.data);
+    if(!m){toast('Data inválida. Use dd/mm/aaaa.');return;}
+    const dt=new Date(+m[3],+m[2]-1,+m[1]);
+    if(dt.getFullYear()!==+m[3]||dt.getMonth()!==+m[2]-1||dt.getDate()!==+m[1]){toast('Confira a data informada.');return;}
+  }
+  const reg={...d,status:d.status||'Agendado',id:editId||uid()},i=A.findIndex(r=>r.id===reg.id);
   if(i>=0)A[i]=reg;else A.push(reg);
-  sv({a:'save',row:reg});toast(editId?'Agendamento atualizado!':'Agendamento salvo!');limpar();render();
+  sv({a:'save',row:reg});toast(editId?'Atualizado com sucesso!':'Salvo com sucesso!');limpar();mudarAba('hoje');
 }
 function limpar(){
   editId=null;$('bSalvar').textContent='💾 Salvar agendamento';
-  AG.forEach(c=>$(c).value='');$('status').value='Agendada';$('pdfFile').value='';$('upS').textContent='Preenchimento automático.';msgs();
+  AG.forEach(c=>$(c).value='');$('status').value='Agendado';$('pdfFile').value='';$('upS').textContent='Preenchimento automático.';msgs();
 }
-function edit(id){const r=A.find(x=>x.id===id);if(!r)return;editId=id;preencher(r);$('bSalvar').textContent='💾 Atualizar agendamento';fechar();window.scrollTo({top:0,behavior:'smooth'});}
-function del(id){if(!confirm('Excluir este agendamento?'))return;A=A.filter(r=>r.id!==id);sv({a:'del',id});render();toast('Excluído.');}
-function stat(id,v){A=A.map(r=>r.id===id?{...r,status:v}:r);sv({a:'save',row:A.find(r=>r.id===id)});render();}
+function edit(id){const r=A.find(x=>x.id===id);if(!r)return;editId=id;preencher(r);$('bSalvar').textContent='💾 Atualizar agendamento';mudarAba('novo');}
+function del(id){if(!confirm('Excluir este agendamento?'))return;A=A.filter(r=>r.id!==id);if(typeof notificacoes!=='undefined'){notificacoes=notificacoes.filter(n=>n.id!==id);salvarNotificacoes();}sv({a:'del',id});atualizarTudo();toast('Excluído.');}
+function stat(id,v){A=A.map(r=>r.id===id?{...r,status:v}:r);sv({a:'save',row:A.find(r=>r.id===id)});atualizarTudo();}
 
-/* ---------- Card de agendamentos (semana) ---------- */
-function abrir(t){
-  sem=seg(new Date());
-  const dts=A.map(r=>pd(r.data)).filter(Boolean);
-  if(dts.length&&!dts.some(d=>d>=sem&&d<=addD(sem,6))){
-    const h0=new Date();h0.setHours(0,0,0,0);
-    const fut=dts.filter(d=>d>=h0).sort((a,b)=>a-b)[0];
-    sem=seg(fut||dts.sort((a,b)=>b-a)[0]);toast('Nada nesta semana: mostrando a semana com agendamentos.');
+function atualizarTudo(){
+  normalizarNotificacoes();
+  uiMotoristas();
+  renderFretesDia();
+  renderLembretes();
+  if($('aba-consulta').style.display!=='none') renderConsulta();
+}
+
+/* Tela Inicial: Fretes do Dia */
+function renderFretesDia(){
+  const hojeStr=new Date().toLocaleDateString('pt-BR');
+  $('txt-data-hoje').textContent=hojeStr;
+  const l=A.filter(r=>r.data===hojeStr);
+  const cont=$('tabela-fretes-dia-container');
+
+  if(!l.length){
+    cont.innerHTML='<small style="color:#667">Nenhum frete agendado para hoje ('+hojeStr+').</small>';
+    return;
   }
-$('modal').classList.add('on');aba(t);}
-function fechar(){$('modal').classList.remove('on');}
-function aba(t){
-  ['ag','mot'].forEach(x=>{$('p-'+x).style.display=x===t?'':'none';$('t-'+x).classList.toggle('on',x===t);});
-  render();
-}
-function mover(n){sem=addD(sem,7*n);render();}
-function hoje(){sem=seg(new Date());render();}
-function itensSem(){
-  const f=$('fs').value,m=$('fm').value,fim=addD(sem,6);
-  return A.filter(r=>{const d=pd(r.data);return d&&d>=sem&&d<=fim&&(!m||r.carreto===m)&&(!f||(f==='p'?(r.status==='Agendada'||r.status==='Em rota'):r.status===f));})
-    .sort((a,b)=>pd(a.data)-pd(b.data));
-}
-function row(r){
-  return `<div class="it"><div><b>NF ${esc(r.nf)||'S/N'}</b> · ${esc(r.cliente)}<br><small>📍 ${esc([r.endereco,r.bairro].filter(Boolean).join(', '))}<br>🚚 ${esc(r.carreto)||'—'} · ${esc(pag(r))||'sem valor'}</small></div>
-  <div style="text-align:right"><select class="sel" onchange="stat('${r.id}',this.value)">${ST.map(x=>`<option${x===r.status?' selected':''}>${x}</option>`).join('')}</select><br>
-  <button class="mini" onclick="edit('${r.id}')">✎</button> <button class="mini" onclick="del('${r.id}')">✕</button></div></div>`;
-}
-function render(){
-  const fmv=$('fm').value;
-  $('fm').innerHTML='<option value="">Todos os motoristas</option>'+M.map(m=>`<option>${esc(m.nome)}</option>`).join('');
-  $('fm').value=fmv;
-  if(!$('modal').classList.contains('on'))return;
-  const its=itensSem();
-  $('semT').textContent='Semana de '+f5(sem)+' a '+f5(addD(sem,4))+' (seg–sex)';
-  let h='';
-  for(let i=0;i<7;i++){
-    const d=addD(sem,i),l=its.filter(r=>pd(r.data).getTime()===d.getTime());
-    if(i>4&&!l.length)continue;
-    h+=`<div class="day"><h4><span>${DIAS[i]} · ${f5(d)}</span><span>${l.length}</span></h4>${l.map(row).join('')||'<div class="it"><small>Sem agendamentos</small></div>'}</div>`;
-  }
-  const sd=A.filter(r=>!pd(r.data));
-  if(sd.length)h+=`<div class="day"><h4><span>⚠️ Sem data válida</span><span>${sd.length}</span></h4>${sd.map(row).join('')}</div>`;
-  $('lista').innerHTML=h;
-  const tot=its.filter(r=>r.status!=='Cancelada').reduce((a,r)=>a+(num(r.valor)||0),0);
-  $('tot').textContent=its.length+' agendamento(s) na semana (de '+A.length+' no banco) · Total de fretes: '+(fmt(tot)||'R$ 0,00');
-  $('listaM').innerHTML=M.map((m,i)=>`<div class="it"><div><b>${esc(m.nome)}</b><br><small>${esc(m.tel)||'sem telefone'}</small></div><div><button class="mini" onclick="delM(${i})">✕</button></div></div>`).join('')||'<small>Nenhum motorista.</small>';
-}
-function filtrados(){const f=$('fs').value,m=$('fm').value;return A.filter(r=>(!m||r.carreto===m)&&(!f||(f==='p'?(r.status==='Agendada'||r.status==='Em rota'):r.status===f)));}
-function lin(r){return '• NF '+(r.nf||'S/N')+' | '+(r.cliente||'-')+'\n  📍 '+([r.endereco,r.bairro].filter(Boolean).join(', ')||'-')+'\n  🚚 '+(r.carreto||'-')+(pag(r)?' | 💰 '+pag(r):'')+' | '+r.status+'\n';}
-function copiarTodos(){
-  const l=filtrados();if(!l.length){toast('Nenhum agendamento.');return;}
-  const com=l.filter(r=>pd(r.data)).sort((a,b)=>pd(a.data)-pd(b.data)),sd=l.filter(r=>!pd(r.data));
-  let t='📋 *TODOS OS AGENDAMENTOS* ('+l.length+')\n',w=null,d0=null;
-  com.forEach(r=>{const d=pd(r.data),s0=seg(d);
-    if(s0.getTime()!==w){w=s0.getTime();d0=null;t+='\n━━━ *SEMANA '+f5(s0)+' a '+f5(addD(s0,4))+'* ━━━\n';}
-    if(d.getTime()!==d0){d0=d.getTime();t+='\n*'+DIAS[(d.getDay()+6)%7].toUpperCase()+' – '+f5(d)+'*\n';}
-    t+=lin(r);});
-  if(sd.length){t+='\n*SEM DATA*\n';sd.forEach(r=>t+=lin(r));}
-  const tot=l.filter(r=>r.status!=='Cancelada').reduce((a,r)=>a+(num(r.valor)||0),0);
-  t+='\n*Total: '+l.length+' entrega(s) · '+(fmt(tot)||'R$ 0,00')+'*';
-  navigator.clipboard.writeText(t.trim()).then(()=>toast(l.length+' agendamento(s) copiado(s)!'));
-}
-function copiarSem(){
-  const its=itensSem();
-  if(!its.length){toast('Nenhum agendamento nesta semana (com os filtros atuais).');return;}
-  let t='📋 *AGENDAMENTOS DA SEMANA* ('+f5(sem)+' a '+f5(addD(sem,4))+')\n';
-  DIAS.forEach((n,i)=>{
-    const d=addD(sem,i),l=its.filter(r=>pd(r.data).getTime()===d.getTime());
-    if(!l.length)return;
-    t+='\n*'+n.toUpperCase()+' – '+f5(d)+'*\n';
-    l.forEach(r=>{t+='• NF '+(r.nf||'S/N')+' | '+(r.cliente||'-')+'\n  📍 '+([r.endereco,r.bairro].filter(Boolean).join(', ')||'-')+'\n  🚚 '+(r.carreto||'-')+(pag(r)?' | 💰 '+pag(r):'')+' | '+r.status+'\n';});
+
+  let html=`<table class="table-fretes">
+    <thead>
+      <tr>
+        <th>Data</th>
+        <th>Cliente</th>
+        <th>Rota / Endereço</th>
+        <th>Status</th>
+        <th class="no-print" style="text-align:right">Ações</th>
+      </tr>
+    </thead>
+    <tbody>`;
+
+  l.forEach(r=>{
+    const rota=[r.endereco,r.bairro].filter(Boolean).join(' → ') || 'Endereço não informado';
+    html+=`<tr>
+      <td>${esc(r.data)}</td>
+      <td><b>${esc(r.cliente)}</b><br><small>NF: ${esc(r.nf||'S/N')}</small></td>
+      <td>${esc(rota)}</td>
+      <td>
+        <select class="sel" onchange="stat('${r.id}',this.value)">${ST.map(x=>`<option${x===r.status?' selected':''}>${x}</option>`).join('')}</select>
+        <div style="margin-top:4px">${badgeStatus(r.status)}</div>
+      </td>
+      <td class="no-print" style="text-align:right">
+        <button class="mini" onclick="edit('${r.id}')">✎</button>
+        <button class="mini" onclick="del('${r.id}')">✕</button>
+      </td>
+    </tr>`;
   });
-  const tot=its.filter(r=>r.status!=='Cancelada').reduce((a,r)=>a+(num(r.valor)||0),0);
-  t+='\n*Total: '+its.length+' entrega(s) · '+(fmt(tot)||'R$ 0,00')+'*';
-  navigator.clipboard.writeText(t).then(()=>toast(its.length+' agendamento(s) copiado(s)!'));
+
+  html+=`</tbody></table>`;
+  cont.innerHTML=html;
 }
 
-/* ---------- Motoristas ---------- */
-function ui(){
+function copiarFretesDia(){
+  const hojeStr=new Date().toLocaleDateString('pt-BR');
+  const l=A.filter(r=>r.data===hojeStr);
+  if(!l.length){toast('Nenhum frete hoje para copiar.');return;}
+  let t=`FRETES DE HOJE — ${hojeStr}\n\n`;
+  l.forEach(r=>{
+    const rota=[r.endereco,r.bairro].filter(Boolean).join(' → ');
+    t+=`${r.data || 'Sem data'} — ${r.cliente || 'Cliente'}\n${rota}\nStatus: ${r.status}\n\n`;
+  });
+  copiarTexto(t.trim(),'Fretes do dia copiados para a área de transferência!');
+}
+
+/* Filtro de Período Personalizado / Hoje / Esta Semana */
+function setFiltroPeriodo(tipo){
+  tipoFiltroPeriodo=tipo;
+  ['hoje','semana','pers'].forEach(k=>{const b=$('btn-f-'+k);if(b)b.classList.remove('active');});
+  const btnTipo=tipo==='personalizado'?'pers':tipo;const b=$('btn-f-'+btnTipo);if(b)b.classList.add('active');$('box-pers-datas').style.display = tipo==='personalizado' ? 'flex' : 'none';
+  renderConsulta();
+}
+function itensConsulta(){
+  const fStatus=$('filtro-status').value;
+  const fMot=$('filtro-mot').value;
+
+  return A.filter(r=>{
+    if(fMot && r.carreto!==fMot) return false;
+    if(fStatus && (fStatus==='p'?(!['Agendado','Agendada','Em rota'].includes(r.status)):((fStatus==='Agendado'&&r.status==='Agendada')?false:r.status!==fStatus))) return false;
+
+    const d=pd(r.data);
+    const h0=new Date(); h0.setHours(0,0,0,0);
+
+    if(tipoFiltroPeriodo==='hoje'){
+      return d && d.getTime()===h0.getTime();
+    } else if(tipoFiltroPeriodo==='semana'){
+      const s0=seg(h0), fimS=addD(s0,6);
+      return d && d>=s0 && d<=fimS;
+    } else if(tipoFiltroPeriodo==='personalizado'){
+      const iniV=$('filtro-ini').value, fimV=$('filtro-fim').value;
+      if(!iniV || !fimV) return true;
+      return d && d>=new Date(iniV+'T00:00:00') && d<=new Date(fimV+'T23:59:59');
+    }
+    return true;
+  }).sort((a,b)=>(pd(a.data)||0)-(pd(b.data)||0));
+}
+function renderConsulta(){
+  const its=itensConsulta();
+  const motSel=$('filtro-mot').value;
+  $('filtro-mot').innerHTML='<option value="">Todos os motoristas</option>'+M.map(m=>`<option>${esc(m.nome)}</option>`).join('');
+  $('filtro-mot').value=motSel;
+
+  let h='';
+  its.forEach(r=>{
+    h+=`<div class="it">
+      <div><b>NF ${esc(r.nf)||'S/N'}</b> · ${esc(r.cliente)} (${esc(r.data||'sem data')})<br>
+      <small>📍 ${esc([r.endereco,r.bairro].filter(Boolean).join(', '))}<br>
+      🚚 ${esc(r.carreto)||'—'} · ${esc(pag(r))||'sem valor'}</small></div>
+      <div style="text-align:right">
+        <select class="sel" onchange="stat('${r.id}',this.value)">${ST.map(x=>`<option${x===r.status?' selected':''}>${x}</option>`).join('')}</select><br>
+        <div style="margin-top:4px">${badgeStatus(r.status)}</div><br>
+        <button class="mini" onclick="edit('${r.id}')">✎</button> <button class="mini" onclick="del('${r.id}')">✕</button>
+      </div>
+    </div>`;
+  });
+  $('lista-consulta').innerHTML = h || '<small>Nenhum agendamento encontrado.</small>';
+  const tot=its.filter(r=>!String(r.status||'').toLowerCase().includes('cancelad')).reduce((acc,r)=>acc+(num(r.valor)||0),0);
+  $('tot-consulta').textContent = its.length+' agendamento(s) no período · Total de fretes: '+(fmt(tot)||'R$ 0,00');
+}
+function copiarConsulta(){
+  const its=itensConsulta();
+  if(!its.length){toast('Nada para copiar.');return;}
+  let t='📋 *RELATÓRIO DE FRETES* ('+its.length+')\n\n';
+  its.forEach(r=>{t+='• Data: '+(r.data||'-')+' | NF '+(r.nf||'S/N')+' | '+(r.cliente||'-')+'\n  📍 '+([r.endereco,r.bairro].filter(Boolean).join(', ')||'-')+'\n  🚚 '+(r.carreto||'-')+(pag(r)?' | 💰 '+pag(r):'')+' | '+r.status+'\n\n';});
+  copiarTexto(t.trim(),'Relatório copiado!');
+}
+
+/* Calendário de Fretes em Modal */
+function abrirCalendarioModal(){
+  calOffset=0;
+  $('modal-calendario').classList.add('on');
+  construirCalendario();
+}
+function fecharCalendarioModal(){
+  $('modal-calendario').classList.remove('on');
+}
+function mudarMesCalendario(delta){calOffset+=delta;construirCalendario();}
+function construirCalendario(){
+  const grid=$('calendar-grid');
+  grid.innerHTML='';
+  ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'].forEach(d=>{
+    grid.innerHTML+=`<div class="calendar-day-header">${d}</div>`;
+  });
+
+  const agora=new Date(), base=new Date(agora.getFullYear(),agora.getMonth()+calOffset,1), ano=base.getFullYear(), mes=base.getMonth();
+  const primeiroDia=new Date(ano, mes, 1).getDay();
+  const totalDias=new Date(ano, mes+1, 0).getDate();
+  const mesesNomes=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  $('cal-mes-ano').textContent = mesesNomes[mes]+' de '+ano;
+
+  for(let i=0; i<primeiroDia; i++){
+    grid.innerHTML+=`<div class="calendar-cell" style="background:#f8fafc;opacity:0.3"></div>`;
+  }
+  for(let dia=1; dia<=totalDias; dia++){
+    const dStr=(dia<10?'0':'')+dia+'/'+((mes+1)<10?'0':'')+(mes+1)+'/'+ano;
+    const doDia=A.filter(r=>r.data===dStr);
+    const tem=doDia.length>0;
+
+    let cell=`<div class="calendar-cell ${tem?'has-frete':''}"><strong>${dia}</strong>`;
+    if(tem){
+      doDia.forEach(r=>{
+        cell+=`<div style="font-size:11px;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+          ${esc(r.cliente)} ${badgeStatus(r.status)}
+        </div>`;
+      });
+    }
+    cell+=`</div>`;
+    grid.innerHTML+=cell;
+  }
+}
+
+/* Motoristas */
+function uiMotoristas(){
   const c=$('carreto'),v=c.value;
   c.innerHTML='<option value="">— selecione —</option>'+M.map(m=>`<option>${esc(m.nome)}</option>`).join('');
   if(v&&![...c.options].some(o=>o.value===v))c.add(new Option(v));
-  c.value=v;render();msgs();
+  c.value=v;
+  $('listaM').innerHTML=M.map((m,i)=>{
+    const qtd=notificacoes.filter(n=>n.motorista===m.nome&&!n.feito).length;
+    return `<div class="it"><div><b>${esc(m.nome)}</b><br><small>${esc(m.tel)||'sem telefone'}</small></div><div><button class="sino-motorista ${m.notificar?'ativo':''}" title="${m.notificar?'Desativar lembretes deste motorista':'Ativar lembretes deste motorista'}" onclick="toggleNotificacaoMotorista(${i})">${m.notificar?'🔔':'🔕'}${qtd?`<span class="contador-sino">${qtd}</span>`:''}</button> <button class="mini" onclick="delM(${i})">✕</button></div></div>`;
+  }).join('')||'<small>Nenhum motorista.</small>';
 }
 function cadM(){
   const nome=$('mn').value.trim(),tel=$('mt').value.trim();
-  if(!nome){toast('Informe o nome do motorista.');return;}
-  if(M.some(m=>m.nome.toLowerCase()===nome.toLowerCase())){toast('Esse motorista já está cadastrado.');return;}
-  M.push({nome,tel});sv({a:'mot',list:M});ui();$('mn').value='';$('mt').value='';
-  toast(URL_?'Motorista cadastrado e planilha atualizada!':'Motorista cadastrado (conecte a planilha para gravar na nuvem).');
+  if(!nome){toast('Informe o nome.');return;}
+  if(M.some(m=>m.nome.toLowerCase()===nome.toLowerCase())){toast('Motorista já cadastrado.');return;}
+  M.push({nome,tel,notificar:preferenciasMotoristas[nome]===true});loc();salvarPreferenciasMotoristas();sv({a:'mot',list:M.map(m=>({nome:m.nome,tel:m.tel||''}))});atualizarTudo();$('mn').value='';$('mt').value='';
+  toast('Motorista cadastrado!');
 }
-function delM(i){if(!confirm('Remover '+M[i].nome+' da lista? (os agendamentos antigos não mudam)'))return;M.splice(i,1);sv({a:'mot',list:M});ui();}
+function delM(i){if(!confirm('Remover motorista?'))return;const nome=M[i]?.nome;M.splice(i,1);if(nome)delete preferenciasMotoristas[nome];salvarPreferenciasMotoristas();sv({a:'mot',list:M.map(m=>({nome:m.nome,tel:m.tel||''}))});atualizarTudo();}
 
-/* ---------- Mensagens ---------- */
+/* Mensagens e WhatsApp */
 function txtC(){
   const d=dados();let m='Olá'+(d.cliente?' *'+d.cliente+'*':'')+'! 👋\nSua entrega foi agendada com sucesso. Confira os dados:\n\n📦 *STATUS: COLETA AGENDADA*\n\n';
   if(d.data)m+='📅 *Data Agendada:* '+d.data+'\n';
@@ -375,61 +726,123 @@ function txtM(){
   return m.trim();
 }
 function msgs(){$('pc').innerText=txtC();$('pm').innerText=txtM();}
-function copiar(t){navigator.clipboard.writeText(t==='c'?txtC():txtM()).then(()=>toast('Mensagem copiada!'));}
-function whats(){
-  let n=$('telefone').value.replace(/\D/g,'');if(n.length<10){toast('Informe um telefone válido.');return;}
-  if(!n.startsWith('55'))n='55'+n;window.open('https://wa.me/'+n+'?text='+encodeURIComponent(txtC()),'_blank');
+async function copiarTexto(texto,mensagem='Copiado!'){
+  try{
+    if(navigator.clipboard && window.isSecureContext){await navigator.clipboard.writeText(texto);}
+    else{
+      const ta=document.createElement('textarea');ta.value=texto;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.focus();ta.select();
+      if(!document.execCommand('copy')) throw new Error('copy');
+      ta.remove();
+    }
+    toast(mensagem);
+  }catch(e){toast('Não foi possível copiar automaticamente.');}
 }
-
-/* ---------- PDF ---------- */
+function copiar(t){copiarTexto(t==='c'?txtC():txtM(),'Mensagem copiada!');}
+function whats(){
+  let n=$('telefone').value.replace(/\D/g,'');if(n.length<10){toast('Telefone inválido.');return;}
+  if(!n.startsWith('55'))n='55'+n;const w=window.open('https://wa.me/'+n+'?text='+encodeURIComponent(txtC()),'_blank','noopener,noreferrer');if(!w)toast('O navegador bloqueou a nova aba. Permita pop-ups para o WhatsApp.');
+}
 function pdf(){
   const d=dados();
-  const L=[['Motorista',d.carreto],['Nota Fiscal',d.nf],['Cliente',d.cliente],['Telefone',d.telefone],['Endereço',d.endereco],['Bairro / Cidade / UF',d.bairro],['CEP',d.cep],['Data de Retirada',d.data],['Pagamento do Frete',pag(d)],['Observações',d.obs]].filter(l=>l[1]);
-  if(!L.length){toast('Preencha os dados antes.');return;}
+  const L=[['Motorista',d.carreto],['Nota Fiscal',d.nf],['Cliente',d.cliente],['Telefone',d.telefone],['Endereço',d.endereco],['Bairro/Cidade/UF',d.bairro],['CEP',d.cep],['Data',d.data],['Frete',pag(d)],['Obs',d.obs]].filter(l=>l[1]);
+  if(!L.length){toast('Preencha os dados.');return;}
   const el=document.createElement('div');
   el.style.cssText='position:fixed;top:0;left:0;width:700px;background:#fff;color:#000;padding:30px;font-family:Arial,sans-serif;z-index:-1';
-  el.innerHTML='<h2 style="text-align:center;color:#0b4fa8;border-bottom:3px solid #0b4fa8;padding-bottom:10px;margin:0 0 6px">Artana Multistore</h2><p style="text-align:center;margin:0 0 18px;color:#555">Solicitação de Coleta / Carreto</p><table style="width:100%;border-collapse:collapse;font-size:14px">'+
-    L.map(l=>'<tr><td style="padding:8px;border-bottom:1px solid #ddd;font-weight:bold;width:34%;vertical-align:top">'+esc(l[0])+'</td><td style="padding:8px;border-bottom:1px solid #ddd;white-space:pre-wrap">'+esc(l[1])+'</td></tr>').join('')+'</table>';
+  el.innerHTML='<h2 style="text-align:center;color:#0b4fa8;border-bottom:3px solid #0b4fa8;padding-bottom:10px">Artana Multistore</h2><table style="width:100%;border-collapse:collapse;font-size:14px">'+
+    L.map(l=>'<tr><td style="padding:8px;border-bottom:1px solid #ddd;font-weight:bold;width:34%">'+esc(l[0])+'</td><td style="padding:8px;border-bottom:1px solid #ddd">'+esc(l[1])+'</td></tr>').join('')+'</table>';
   document.body.appendChild(el);window.scrollTo(0,0);
-  html2pdf().set({margin:10,filename:'Coleta_NF_'+(d.nf||'sem-numero')+'.pdf',image:{type:'jpeg',quality:.98},html2canvas:{scale:2,scrollX:0,scrollY:0,backgroundColor:'#ffffff'},jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}})
-    .from(el).save().then(()=>{el.remove();toast('PDF gerado!');}).catch(()=>{el.remove();toast('Erro ao gerar PDF.');});
+  html2pdf().set({margin:10,filename:'Coleta_NF_'+(d.nf||'sem-num')+'.pdf',image:{type:'jpeg',quality:.98},html2canvas:{scale:2},jsPDF:{unit:'mm',format:'a4'}})
+    .from(el).save().then(()=>{el.remove();toast('PDF gerado!');}).catch(()=>{el.remove();});
 }
 
-/* ---------- Leitura da DANFE ---------- */
+/* Leitura de PDF */
 async function lerPDF(inp){
-  const f=inp.files[0];if(!f)return;const s=$('upS');s.textContent='Lendo Nota Fiscal...';
+  const f=inp.files[0];if(!f)return;
+  const s=$('upS');s.textContent='Lendo PDF...';
   try{
-    const p=await pdfjsLib.getDocument({data:await f.arrayBuffer()}).promise;let t='';
-    for(let i=1;i<=p.numPages;i++){const c=await (await p.getPage(i)).getTextContent();t+=c.items.map(x=>x.str).join(' ')+' ';}
-    const g=(re,i=1)=>{const m=t.match(re);return m?m[i].trim():'';};
-    const nf=g(/N[º°o.]*\s*(\d{3}\.?\d{3}|\d{6,9})/i).replace(/\./g,'');
-    const cli=g(/DESTINATÁRIO\/REMETENTE[\s\S]*?NOME\/RAZÃO SOCIAL\s*([A-Za-zÀ-ÿ\s]+?)(?=\s*CNPJ|\s*ENDEREÇO)/i);
-    const end=g(/ENDEREÇO\s*([A-Za-zÀ-ÿ0-9\s,\.-]+?)(?=\s*BAIRRO|\s*MUNICIPIO)/i);
-    const bai=g(/BAIRRO\s*([A-Za-zÀ-ÿ0-9\s]+?)(?=\s*UF|\s*CEP)/i),mun=g(/MUNICIPIO\s*([A-Za-zÀ-ÿ\s]+?)(?=\s*UF|\s*INSC)/i),uf=g(/\bUF\s*([A-Z]{2})\b/);
-    const cep=g(/\d{2}\.?\d{3}-?\d{3}/,0),fone=g(/\(\d{2}\)\s*\d{4,5}-?\d{4}/,0);
-    if(nf)$('nf').value=nf;if(cli)$('cliente').value=cli;if(end)$('endereco').value=end;
-    let b=bai;if(mun)b+=(b?' - ':'')+mun;if(uf)b+='/'+uf;if(b)$('bairro').value=b;
-    if(cep)$('cep').value=cep;if(fone)$('telefone').value=fone;
-    s.textContent='Dados extraídos! Confira antes de salvar.';msgs();
-  }catch(e){s.textContent='Não foi possível ler este PDF.';}
+    const p=await pdfjsLib.getDocument({data:await f.arrayBuffer()}).promise;
+    let t='';
+    for(let i=1;i<=p.numPages;i++){
+      const c=await (await p.getPage(i)).getTextContent();
+      t+=c.items.map(x=>x.str).join(' ')+' ';
+    }
+
+    // DANFEs podem vir com espaços/quebras diferentes dependendo do emissor.
+    const txt=t.replace(/\s+/g,' ').trim();
+    const g=(re,i=1)=>{const m=txt.match(re);return m?String(m[i]||'').trim():'';};
+    const limpaNome=v=>v.replace(/\s+/g,' ').replace(/[|]+/g,' ').trim();
+
+    // Nota Fiscal: tenta primeiro os formatos mais comuns de DANFE.
+    let nf=g(/N[º°o.]?\s*([0-9]{3}\.?[0-9]{3,9})\b/i);
+    if(!nf) nf=g(/N[ÚU]MERO\s*[:\-]?\s*([0-9]{6,9})/i);
+    nf=nf.replace(/\./g,'');
+
+    // Cliente / destinatário: aceita variações como
+    // "NOME/RAZÃO SOCIAL", "NOME / RAZÃO SOCIAL" e "NOME/RAZAO SOCIAL".
+    let cli=g(/(?:NOME\s*\/\s*RAZ[ÃA]O\s+SOCIAL|RAZ[ÃA]O\s+SOCIAL)\s*[:\-]?\s*([A-ZÀ-Ý0-9][A-ZÀ-Ý0-9 .&'\-\/]{1,120}?)(?=\s+(?:CNPJ|CPF|ENDERE[CÇ]O|INSCRI[CÇ][AÃ]O|IE)\b)/i);
+
+    // Fallback: em alguns PDFs o texto do campo vem sem o rótulo completo.
+    if(!cli){
+      cli=g(/DESTINAT[AÁ]RIO\s*\/\s*REMETENTE\s+(.{2,120}?)(?=\s+(?:CNPJ|CPF)\b)/i);
+    }
+    cli=limpaNome(cli);
+
+    const end=g(/ENDERE[CÇ]O\s*[:\-]?\s*([A-Za-zÀ-ÿ0-9\s,\.\-\/]+?)(?=\s+(?:BAIRRO|CEP|MUNIC[IÍ]PIO)\b)/i);
+    const bai=g(/BAIRRO\s*[:\-]?\s*([A-Za-zÀ-ÿ0-9\s\-\.]+?)(?=\s+(?:UF|CEP|MUNIC[IÍ]PIO)\b)/i);
+    const mun=g(/MUNIC[IÍ]PIO\s*[:\-]?\s*([A-Za-zÀ-ÿ\s\-\.]+?)(?=\s+(?:UF|CEP|INSC|INSCRI[CÇ][AÃ]O)\b)/i);
+    const uf=g(/\bUF\s*[:\-]?\s*([A-Z]{2})\b/i);
+    const cep=g(/\b(\d{2}\.?\d{3}-?\d{3})\b/,1);
+    const fone=g(/\((\d{2})\)\s*(\d{4,5})-?(\d{4})/,0);
+
+    if(nf)$('nf').value=nf;
+    if(cli)$('cliente').value=cli;
+    if(end)$('endereco').value=end.trim();
+
+    let b=bai.trim();
+    if(mun)b+=(b?' - ':'')+mun.trim();
+    if(uf)b+=(b?'/':'')+uf.toUpperCase();
+    if(b)$('bairro').value=b;
+    if(cep)$('cep').value=cep.replace(/\./g,'');
+    if(fone)$('telefone').value=fone;
+
+    const encontrados=[];
+    if(nf)encontrados.push('NF');
+    if(cli)encontrados.push('cliente');
+    if(end)encontrados.push('endereço');
+    if(b)encontrados.push('localização');
+    if(cep)encontrados.push('CEP');
+    if(fone)encontrados.push('telefone');
+
+    s.textContent=encontrados.length
+      ? 'Dados extraídos: '+encontrados.join(', ')+'. Confira antes de salvar.'
+      : 'PDF lido, mas não foi possível identificar os campos automaticamente.';
+    msgs();
+  }catch(e){
+    console.error('Erro ao ler DANFE:',e);
+    s.textContent='Erro ao ler PDF. Verifique se o arquivo é um DANFE em PDF com texto selecionável.';
+  }
 }
 
-/* ---------- Máscaras e eventos ---------- */
+/* Máscaras */
 const mT=v=>{v=v.replace(/\D/g,'').slice(0,11);return v.length>10?v.replace(/(\d{2})(\d{5})(\d{4})/,'($1) $2-$3'):v.length>6?v.replace(/(\d{2})(\d{4})(\d{0,4})/,'($1) $2-$3'):v;};
 const mC=v=>{v=v.replace(/\D/g,'').slice(0,8);return v.length>5?v.slice(0,5)+'-'+v.slice(5):v;};
 const mD=v=>{v=v.replace(/\D/g,'').slice(0,8);return v.replace(/(\d{2})(\d{0,2})(\d{0,4})/,(m,a,b,c)=>a+(b?'/'+b:'')+(c?'/'+c:''));};
 AG.forEach(c=>$(c).addEventListener('input',()=>{
   if(c==='telefone')$(c).value=mT($(c).value);if(c==='cep')$(c).value=mC($(c).value);if(c==='data')$(c).value=mD($(c).value);msgs();
 }));
-$('mt').addEventListener('input',e=>e.target.value=mT(e.target.value));
-$('carreto').addEventListener('change',()=>{
+$('mt').addEventListener('input',e=>e.target.value=mT(e.target.value));$('carreto').addEventListener('change',()=>{
   if($('valor').value)return;
   const u=A.slice().reverse().find(r=>r.carreto===$('carreto').value&&r.valor);
-  if(u){$('valor').value=u.valor;if(!$('pagamento').value)$('pagamento').value=u.pagamento||'';msgs();toast('Valor habitual do motorista preenchido.');}
+  if(u){$('valor').value=u.valor;if(!$('pagamento').value)$('pagamento').value=u.pagamento||'';msgs();toast('Valor habitual aplicado.');}
 });
 
-ld();ui();st();aviso();puxar();
-window.addEventListener('focus',()=>puxar());window.addEventListener('online',()=>puxar());
+ld();atualizarTudo();st();aviso();puxar();setFiltroPeriodo('hoje');
+window.addEventListener('focus',()=>{puxar();}); window.addEventListener('online',()=>{puxar();}); window.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('modal-calendario').classList.contains('on'))fecharCalendarioModal();});
 </script>
+
+<footer class="no-print" style="text-align:center;padding:10px 15px;margin-top:24px;color:#667085;font-size:11px;border-top:1px solid var(--bd);">
+  Artana Multistore · Responsável Técnico: <strong>Abner Jezrrel</strong> · Formação: <strong>Técnico em Desenvolvimento de Sistemas</strong>
+</footer>
+
 </body>
 </html>
